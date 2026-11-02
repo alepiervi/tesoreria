@@ -88,6 +88,10 @@ async def set_role(user_id: str, company_id: str, body: RoleIn, user: dict = Dep
         raise HTTPException(404, "Utente non trovato.")
     if user_id == user["id"] and body.role != "titolare":
         raise HTTPException(400, "Non puoi togliere a te stesso il ruolo di titolare.")
+    if target.get("is_developer"):
+        raise HTTPException(404, "Utente non trovato.")
+    if target.get("is_owner") and user_id != user["id"]:
+        raise HTTPException(403, "Non puoi cambiare gli accessi di un altro titolare.")
     existing = await db.memberships.find_one({"user_id": user_id, "company_id": company_id})
     if existing:
         await db.memberships.update_one({"id": existing["id"]}, {"$set": {"role": body.role}})
@@ -104,6 +108,9 @@ async def revoke(user_id: str, company_id: str, user: dict = Depends(get_current
     db = get_db()
     if user_id == user["id"]:
         raise HTTPException(400, "Non puoi revocare il tuo stesso accesso.")
+    target_user = await db.users.find_one({"id": user_id})
+    if target_user and target_user.get("is_owner"):
+        raise HTTPException(403, "Non puoi revocare gli accessi di un altro titolare.")
     membership = await db.memberships.find_one({"user_id": user_id, "company_id": company_id})
     if not membership:
         raise HTTPException(404, "Accesso non trovato.")
@@ -124,9 +131,7 @@ async def deactivate(user_id: str, user: dict = Depends(get_current_user)):
     if user_id == user["id"]:
         raise HTTPException(400, "Non puoi disattivare te stesso.")
     db = get_db()
-    target = await db.users.find_one({"id": user_id})
-    if not target:
-        raise HTTPException(404, "Utente non trovato.")
+    target = await _managed_target(user, user_id)
     if target.get("is_owner"):
         raise HTTPException(403, "Un titolare non può disattivare un altro titolare.")
     await db.users.update_one({"id": user_id}, {"$set": {"active": False}, "$inc": {"token_version": 1}})
@@ -138,12 +143,19 @@ async def deactivate(user_id: str, user: dict = Depends(get_current_user)):
 async def activate(user_id: str, user: dict = Depends(get_current_user)):
     require_owner(user)
     db = get_db()
-    target = await db.users.find_one({"id": user_id})
-    if not target:
-        raise HTTPException(404, "Utente non trovato.")
+    target = await _managed_target(user, user_id)
     await db.users.update_one({"id": user_id}, {"$set": {"active": True}})
     await audit.log(user, "utente_riattivato", target=target["email"])
     return {"ok": True}
+
+
+async def _managed_target(user: dict, user_id: str) -> dict:
+    """Utente su cui il titolare può agire: mai lo sviluppatore, solo chi condivide almeno un'azienda."""
+    target = await get_db().users.find_one({"id": user_id})
+    shared = set(await _managed_company_ids(user)) & {m["company_id"] for m in await get_memberships(user_id)}
+    if not target or target.get("is_developer") or not shared:
+        raise HTTPException(404, "Utente non trovato.")
+    return target
 
 
 # ---------- Inviti ----------
@@ -173,9 +185,11 @@ async def create_invite(body: InviteIn, user: dict = Depends(get_current_user)):
         await audit.log(user, "invito_creato", cid, email, {"role": body.role})
     # Il link va inviato all'utente. Quando collegherai un servizio email potrai spedirlo in automatico.
     invite_url = f"{settings.frontend_url}/invito/{token}"
+    invite_path = f"/invito/{token}"
     out = clean(invite)
     out.pop("token_hash")
     out["invite_url"] = invite_url
+    out["invite_path"] = invite_path
     return out
 
 
@@ -231,16 +245,19 @@ async def accept_invite(token: str, body: AcceptIn):
     invite = await _valid_invite(token)
     db = get_db()
     user = await db.users.find_one({"email": invite["email"]})
+    existing_user = user is not None
     owner_invite = invite.get("owner_invite", False)
     if user and user.get("is_developer"):
         raise HTTPException(400, "L'account sviluppatore non può avere accesso ai dati delle aziende.")
     if user:
+        from .auth import check_second_factor, fail_attempt
+        locked_until = user.get("locked_until")
+        if locked_until and datetime.fromisoformat(locked_until) > now_utc():
+            raise HTTPException(429, "Troppi tentativi falliti. Riprova tra qualche minuto.")
         if not verify_password(body.password, user["password_hash"]):
-            raise HTTPException(401, "Password non corretta per questo account.")
-        if user.get("totp_enabled"):
-            from .auth import check_second_factor
-            if not body.totp_code or not await check_second_factor(db, user, body.totp_code):
-                raise HTTPException(401, "Codice di verifica non valido o già usato.")
+            await fail_attempt(db, user, "invito_password_errata", "Password non corretta per questo account.")
+        if user.get("totp_enabled") and (not body.totp_code or not await check_second_factor(db, user, body.totp_code)):
+            await fail_attempt(db, user, "invito_codice_errato", "Codice di verifica non valido o già usato.")
         if owner_invite and not user.get("is_owner"):
             await db.users.update_one({"id": user["id"]}, {"$set": {"is_owner": True}})
     else:
@@ -266,7 +283,7 @@ async def accept_invite(token: str, body: AcceptIn):
     await db.invites.update_one({"id": invite["id"]}, {"$set": {"accepted_at": now_iso()}})
     await audit.log(user, "invito_accettato", details={"companies": company_ids, "titolare": owner_invite})
     # Nessuna sessione diretta: si entra sempre dal login con password e verifica in due passaggi
-    return {"ok": True, "email": user["email"]}
+    return {"ok": True, "email": user["email"], "existing_user": existing_user}
 
 
 @router.post("/members/{user_id}/reset-2fa")
@@ -276,11 +293,7 @@ async def reset_2fa(user_id: str, user: dict = Depends(get_current_user)):
     if user_id == user["id"]:
         raise HTTPException(400, "Non puoi azzerare la tua verifica: usa un codice di recupero.")
     db = get_db()
-    shared = set(await _managed_company_ids(user))
-    target_companies = {m["company_id"] for m in await get_memberships(user_id)}
-    target = await db.users.find_one({"id": user_id})
-    if not target or target.get("is_developer") or not shared & target_companies:
-        raise HTTPException(404, "Utente non trovato.")
+    target = await _managed_target(user, user_id)
     if target.get("is_owner"):
         raise HTTPException(403, "La verifica di un titolare si recupera solo con i suoi codici di recupero.")
     await db.users.update_one({"id": user_id}, {

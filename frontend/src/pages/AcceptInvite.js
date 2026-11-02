@@ -31,7 +31,7 @@ export default function AcceptInvite() {
     setBusy(true);
     try {
       const res = await api.post(`/invites/token/${token}/accept`, { name, password, totp_code: code || undefined });
-      navigate("/login", { replace: true, state: { email: res.data.email, invited: true } });
+      navigate("/login", { replace: true, state: { email: res.data.email, invited: res.data.existing_user ? "existing" : "new" } });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -68,8 +68,8 @@ export default function AcceptInvite() {
                   <input id="pw" type="password" required autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </Field>
                 {info.existing_totp && (
-                  <Field label="Codice di verifica" htmlFor="invite-code" hint="Il codice a 6 cifre dall'app sul telefono.">
-                    <input id="invite-code" inputMode="numeric" maxLength={6} required className="input w-40" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} data-testid="invite-totp-code" />
+                  <Field label="Codice di verifica" htmlFor="invite-code" hint="Il codice a 6 cifre dall'app sul telefono, oppure un codice di recupero (es. ABCD-EFGH).">
+                    <input id="invite-code" autoComplete="one-time-code" maxLength={9} required className="input w-48 font-mono uppercase" value={code} onChange={(e) => setCode(e.target.value)} data-testid="invite-totp-code" />
                   </Field>
                 )}
               </>

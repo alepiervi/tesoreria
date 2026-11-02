@@ -46,8 +46,11 @@ async def create_company(body: CompanyIn, user: dict = Depends(get_current_user)
     company = {"id": new_id(), **body.model_dump(), "vat_number": body.vat_number.strip().upper(),
                "created_at": now_iso(), "created_by": user["id"]}
     await db.companies.insert_one(company)
-    await db.memberships.insert_one({"id": new_id(), "user_id": user["id"], "company_id": company["id"],
-                                     "role": "titolare", "created_at": now_iso()})
+    # Tutti i titolari del gruppo prendono in carico la nuova azienda
+    owners = await db.users.find({"is_owner": True, "is_developer": {"$ne": True}, "active": {"$ne": False}}, {"_id": 0, "id": 1}).to_list(100)
+    for uid in {user["id"], *(o["id"] for o in owners)}:
+        await db.memberships.insert_one({"id": new_id(), "user_id": uid, "company_id": company["id"],
+                                         "role": "titolare", "created_at": now_iso()})
     await audit.log(user, "azienda_creata", company["id"], company["name"])
     return clean(company)
 

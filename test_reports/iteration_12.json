@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 12 hardening regression. All 6 requested items pass. Backend: 7/8 tests in /tmp/test_iter12.py pass against the public URL. The 1 failure is caused by the platform ingress, not the app (see CORS). The existing in-process suite passes 111/111. Frontend (Playwright): developer login works end to end. The flow is the QR/secret screen, a wrong code is rejected, 10 recovery codes appear, the done button is disabled until the checkbox is ticked, then the user lands on /sviluppatore. The login page shows only an 'Accedi' button, with no demo buttons or text. The invite page for an existing user with 2FA shows #pw and invite-totp-code (no confirm-password field). An empty code is blocked by the 'required' attribute, a wrong code shows 'Codice di verifica non valido o già usato.', and a valid code redirects to /login with invite-accepted-notice and the email prefilled. On the owner A Members page, owner B shows no 'Azzera verifica' and no 'Disattiva'. The collaborator shows both buttons, and reset-2fa-{id} gives the 'Verifica azzerata' toast. API: A -> B reset-2fa returns 403 and deactivate returns 403, and B's session still works. Existing-user invite: no code 401, wrong code 401, wrong password with a valid code 401, valid code 200 with no access_token, the token is then 404, and the memberships are added. Collaborator: deactivate gives 200 and the old session gets 401, then activate 200, then reset-2fa 200, and the next login returns setup_required. The developer password and the old demo password appear 0 times in the working tree (excluding node_modules/.git/test_reports/backend/.env), in the served JS bundle and in the backend logs. App-level CORS is correct: localhost:8001 with Origin evil.example returns no ACAO, and preflight returns 400. The preview origin is echoed exactly. NEW findings: an owner can still demote or revoke another owner's company access, an owner can deactivate the developer account, and the accept-invite endpoint has no lockout.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/members/{ownerB}/companies/{cid} and DELETE /api/members/{ownerB}/companies/{cid}", "issue": "This bypasses the new 'a titolare cannot touch another titolare' rule. Owner A demoted owner B from titolare to commercialista on Co1 (200) and revoked B on Co2 (200), leaving B with 1 commercialista membership. The UI also still shows the role select and 'Revoca' on another owner's rows. Add the same target.is_owner -> 403 check to set_role and revoke (unless target == self), and hide or disable those controls in Members.js when m.is_owner.", "priority": "HIGH"},
+      {"endpoint": "POST /api/members/{developer_id}/deactivate (and /activate)", "issue": "deactivate has no is_developer check (reset_2fa has one). Owner A deactivated the developer account (200), which also bumps token_version and locks the developer out. It was re-activated by the same owner (200). activate also accepts any user id. Add 'if target.get(\"is_developer\"): 404/403' to both. Consider also scoping to shared companies the way reset_2fa does.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/invites/token/{t}/accept (existing user)", "issue": "Wrong password or wrong TOTP is not counted in failed_logins, and locked_until is not checked. 7 wrong attempts against an existing user returned 401 every time, with failed_logins=0 and no lockout. Someone holding an invite link has an unlimited password+TOTP guessing oracle. Reuse the login _fail/lockout logic."},
+      {"endpoint": "POST /api/companies", "issue": "A company created by owner A after owner B joined gives B no membership (B had 0 memberships on TEST_Co3). The owner-invite logic implies 'the group owner takes all companies'. Confirm whether new companies should auto-add every is_owner user."},
+      {"endpoint": "CORS at the public ingress", "issue": "Informational, not an app bug. A simple GET /api/health with Origin evil.example returns 'Access-Control-Allow-Origin: *' through the preview ingress (Cloudflare/Google). The app itself (localhost:8001) returns no ACAO for evil.example, rejects the preflight with 400, and echoes only the configured preview origin. The ingress does not echo the evil origin itself. Note also that REACT_APP_BACKEND_URL (gestione-tesoreria-...) differs from FRONTEND_URL/CORS_ORIGINS (7f4a3300-...). Make sure CORS_ORIGINS is set to the real production origin at deploy time."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Members.js owner rows", "issue": "For another titolare (m.is_owner), the role <select> and the 'Revoca' buttons are still shown and they work (see backend critical)", "selector": "select#role-{id}-{cid}, button 'Revoca'", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login after accepting an invite as an existing 2FA user", "issues": ["The invite-accepted-notice says 'Accedi con la password appena scelta: poi attiverai la verifica in due passaggi', which is wrong for an existing user who already has 2FA. Use different copy when the user existed."]},
+      {"screen": "AcceptInvite.js", "issues": ["invite-totp-code allows only 6 digits, so a user who lost their phone cannot use a recovery code here (the backend check_second_factor would accept one). Consider a recovery toggle like on Login."]},
+      {"screen": "Login.js", "issues": ["The DEMO array ('titolare@demo.it') and the 'log del server' text are still in the served bundle (dead code, because SHOW_DEMO is false). Remove them to keep public code clean."]}
+    ]
+  },
+  "test_report_links": ["/tmp/test_iter12.py (outside /app as requested; reads DEV_PW, DEV_RC, BASE_URL and GOOD_ORIGIN from env)", "/tmp/extra12.py", "/tmp/extra12b.py"],
+  "action_items": [
+    "Block set_role and revoke on another titolare (403), and hide the role select and Revoca for m.is_owner rows in Members.js",
+    "Add an is_developer guard (and ideally shared-company scoping) to /members/{id}/deactivate and /activate",
+    "Apply failed-login counting and lockout to the existing-user path of accept_invite",
+    "Optional: fix the invite-accepted notice copy for existing users; allow recovery codes on the invite page; remove the dead DEMO code from Login.js; decide whether new companies auto-include all group owners"
+  ],
+  "critical_code_review_comments": [
+    "members.deactivate checks is_owner but not is_developer; reset_2fa checks both. The checks are inconsistent",
+    "members.set_role and revoke only enforce 'at least one titolare' and do not protect other owners",
+    "accept_invite verifies the password and TOTP without calling _fail, so there is no lockout",
+    "config.py: JWT_SECRET now fails fast (os.environ['JWT_SECRET']), SEED_DEMO defaults to False, and CORS falls back to FRONTEND_URL. Good. server.py prints the demo password only when it is generated and SEED_DEMO is on, and logs no password"
+  ],
+  "updated_files": ["/app/test_reports/iteration_12.json"],
+  "success_rate": {"backend": "7/8 requested tests (the 1 failure is ingress-injected ACAO '*', the app is correct); 111/111 existing suite", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Developer enrolled in 2FA (secret captured at runtime, 1 recovery code used). Users (password TestOwner2026x): test_ownera_fa44f1@example.com, test_ownerb_b5b17c@example.com (now demoted to commercialista on TEST_Co1 and revoked on TEST_Co2 by the test), test_collab_610a89@example.com (2FA reset, not enrolled). Companies TEST_Co1, TEST_Co2, TEST_Co3. Pending invite for owner B to TEST_Co2. The DB is expected to be wiped.",
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore] (not persisted anywhere). memory/test_credentials.md holds no passwords.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use the public URL https://7f4a3300-...preview.emergentagent.com (FRONTEND_URL/CORS_ORIGINS). TOTP codes come from pyotp. Each step is single-use per user, so sleep 31 s between logins of the same user. Members page is at /utenti, reset buttons are reset-2fa-{id}, and Disattiva has no testid. Retest: owner -> other owner set_role/revoke return 403, owner -> developer deactivate returns 403/404, accept_invite lockout after 5 failures."
+}

@@ -91,11 +91,11 @@ export default function Members() {
                     <div key={a.company_id} className="flex flex-wrap items-center gap-3 rounded-lg bg-page px-3 py-2">
                       <span className="min-w-[160px] flex-1 text-sm font-semibold">{a.company_name}</span>
                       <label htmlFor={`role-${m.id}-${a.company_id}`} className="sr-only">Ruolo su {a.company_name}</label>
-                      <select id={`role-${m.id}-${a.company_id}`} className="input min-h-[40px] w-auto text-[13px]" value={a.role} disabled={m.is_me}
+                      <select id={`role-${m.id}-${a.company_id}`} className="input min-h-[40px] w-auto text-[13px]" value={a.role} disabled={m.is_me || m.is_owner}
                         onChange={(e) => act(() => api.put(`/members/${m.id}/companies/${a.company_id}`, { role: e.target.value }), "Ruolo aggiornato")}>
                         {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
-                      {!m.is_me && (
+                      {!m.is_me && !m.is_owner && (
                         <Button variant="ghost" className="min-h-[40px] px-2 text-warn-text"
                           onClick={() => window.confirm(`Revocare l'accesso di ${m.email} a ${a.company_name}?`) && act(() => api.delete(`/members/${m.id}/companies/${a.company_id}`), "Accesso revocato")}>
                           Revoca
@@ -103,7 +103,7 @@ export default function Members() {
                       )}
                     </div>
                   ))}
-                  {!m.is_me && <AddAccess member={m} managed={managed} onAdd={(cid, role) => act(() => api.put(`/members/${m.id}/companies/${cid}`, { role }), "Accesso aggiunto")} />}
+                  {!m.is_me && !m.is_owner && <AddAccess member={m} managed={managed} onAdd={(cid, role) => act(() => api.put(`/members/${m.id}/companies/${cid}`, { role }), "Accesso aggiunto")} />}
                 </div>
               </li>
             ))}
@@ -128,7 +128,7 @@ export default function Members() {
       )}
 
       <InviteModal open={inviteOpen} managed={managed} onClose={() => setInviteOpen(false)}
-        onDone={(inv) => { setInviteOpen(false); setNewLink({ email: inv.email, url: inv.invite_url }); load(); }} />
+        onDone={(inv) => { setInviteOpen(false); setNewLink({ email: inv.email, url: `${window.location.origin}${inv.invite_path}` }); load(); }} />
     </>
   );
 }

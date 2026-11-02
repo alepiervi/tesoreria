@@ -24,7 +24,7 @@ export default function DevOwnerInvite() {
     setError("");
     try {
       const r = await api.post("/developer/owner-invites", { email, name });
-      setLink({ id: r.data.id, url: r.data.invite_url });
+      setLink({ id: r.data.id, url: `${window.location.origin}${r.data.invite_path}` });
       setEmail("");
       setName("");
       load();

@@ -6,13 +6,6 @@ import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { IDLE_MINUTES, clearIdleLogout, wasIdleLogout } from "../lib/idle";
 
-const DEMO = [
-  ["titolare@demo.it", "Titolare"],
-  ["amministrazione@demo.it", "Amministrazione"],
-  ["commercialista@demo.it", "Commercialista"],
-];
-const SHOW_DEMO = process.env.REACT_APP_SHOW_DEMO_LOGIN === "true";
-
 export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -93,7 +86,7 @@ export default function Login() {
             <div data-testid="idle-logout-notice"><Notice>Sei stato disconnesso dopo {IDLE_MINUTES} minuti di inattività. Accedi di nuovo per continuare.</Notice></div>
           )}
           {location.state?.invited && step === "credentials" && (
-            <div data-testid="invite-accepted-notice"><Notice>Account pronto. Accedi con la password appena scelta: poi attiverai la verifica in due passaggi.</Notice></div>
+            <div data-testid="invite-accepted-notice"><Notice>{location.state.invited === "existing" ? "Invito accettato: i nuovi accessi sono già attivi. Accedi come sempre con password e codice." : "Account pronto. Accedi con la password appena scelta: poi attiverai la verifica in due passaggi."}</Notice></div>
           )}
 
           {step === "setup" && (
@@ -141,18 +134,6 @@ export default function Login() {
             </form>
           )}
         </div>
-        {SHOW_DEMO && step === "credentials" && (
-          <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-[#C9CDD4] p-4">
-            <span className="text-xs font-semibold text-muted">Utenti di prova · la password è nel log del server</span>
-            <div className="flex flex-wrap gap-2">
-              {DEMO.map(([mail, label]) => (
-                <Button key={mail} variant="secondary" className="min-h-[40px] text-[13px]" onClick={() => setEmail(mail)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

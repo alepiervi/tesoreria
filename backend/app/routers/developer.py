@@ -119,7 +119,7 @@ async def create_owner_invite(body: OwnerInviteIn, user: dict = Depends(develope
     await db.invites.insert_one(invite)
     await audit.log(user, "invito_titolare_creato", target=email)
     return {"id": invite["id"], "email": email, "expires_at": invite["expires_at"],
-            "invite_url": f"{settings.frontend_url}/invito/{token}"}
+            "invite_url": f"{settings.frontend_url}/invito/{token}", "invite_path": f"/invito/{token}"}
 
 
 @router.delete("/developer/owner-invites/{invite_id}")

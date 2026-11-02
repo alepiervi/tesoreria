@@ -49,7 +49,7 @@ def public_user(user: dict) -> dict:
     }
 
 
-async def _fail(db, user: dict, action: str, message: str):
+async def fail_attempt(db, user: dict, action: str, message: str):
     """Ogni tentativo sbagliato (password o codice) conta per il blocco dell'account."""
     failed = user.get("failed_logins", 0) + 1
     update = {"failed_logins": failed}
@@ -102,7 +102,7 @@ async def login(body: LoginIn):
                             "Troppi tentativi falliti. Riprova tra qualche minuto.")
 
     if not verify_password(body.password, user["password_hash"]):
-        await _fail(db, user, "login_fallito", "Email o password non corretti.")
+        await fail_attempt(db, user, "login_fallito", "Email o password non corretti.")
 
     if user.get("totp_enabled"):
         if not body.totp_code:
@@ -110,7 +110,7 @@ async def login(body: LoginIn):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "2fa_required")
         method = await check_second_factor(db, user, body.totp_code)
         if not method:
-            await _fail(db, user, "codice_2fa_errato", "Codice di verifica non valido o già usato.")
+            await fail_attempt(db, user, "codice_2fa_errato", "Codice di verifica non valido o già usato.")
         return await _login_ok(db, user, method)
 
     if settings.require_2fa_login:
@@ -144,7 +144,7 @@ async def _finish_setup(user: dict, code: str) -> list[str]:
     secret = user.get("totp_pending_secret")
     step = totp_step(secret, code or "")
     if step is None:
-        await _fail(db, user, "codice_2fa_errato", "Codice non valido. Controlla l'ora del telefono e riprova.")
+        await fail_attempt(db, user, "codice_2fa_errato", "Codice non valido. Controlla l'ora del telefono e riprova.")
     codes = new_recovery_codes()
     await db.users.update_one({"id": user["id"]}, {"$set": {
         "totp_secret": secret, "totp_enabled": True, "totp_pending_secret": None, "totp_last_step": step,
