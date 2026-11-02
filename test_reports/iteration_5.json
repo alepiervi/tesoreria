@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only test of the owner sidebar visibility fix and the new Nureal logo. As owner with 0 companies, the sidebar shows all 40 links: Panoramica incl. Assistente, Operatività incl. Paghe and Chiusura del mese, Provvigioni (3), Analisi incl. Commesse, Controllo e strategia (3), Gruppo (4), Contabilità (7), Con il commercialista incl. Export, Aiuto, and Amministrazione (Utenti, Registro, Impostazioni). I visited every link with 0 companies: no JS pageerrors, no 5xx, no blank pages. After creating TEST_Alpha Srl through Impostazioni -> + Nuova azienda, I visited all 40 links again: every page rendered real content, with no JS errors, no 4xx or 5xx, and no stuck spinners. Logos: app-logo on login (naturalWidth 512), sidebar-logo, the mobile header logo at 390x844 and the drawer logo all render. favicon.png, favicon.ico, logo.png, icon-192, icon-512, apple-touch-icon and icon-maskable-512 all return 200 with valid images. index.html links favicon.png, favicon.ico and apple-touch-icon. Non-owner regression: I invited a Commercialista through the UI, accepted the invite and logged in. Their sidebar has no Gruppo, no Utenti e accessi and no Registro, and /utenti shows Accesso non consentito.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "group/Consolidated.js, group/Compare.js", "issue": "With 0 companies, GET /api/group/consolidated and /api/group/compare return 404 'Nessuna azienda disponibile.' The page shows the ErrorBox and an endless 'Caricamento...' spinner underneath, because data stays null and the page renders <Loading/> whenever !data. Fix: render Loading only when !data && !error, or show the Empty state on 404.", "selector": "main", "priority": "LOW"},
+      {"component": "Members.js (/utenti)", "issue": "The owner with 0 companies sees 'Accesso non consentito – Solo il titolare può gestire gli utenti.' This is misleading because the owner is the titolare. Show 'Crea prima un'azienda' with a link to /impostazioni?nuova=1 when user.is_owner.", "selector": "main", "priority": "LOW"},
+      {"component": "Export.js (/export)", "issue": "The owner with 0 companies sees 'Nessuna azienda esportabile – Il tuo ruolo non permette...'. The role wording is misleading for the owner. The same applies to the 'Nessuna azienda con accesso alla contabilità/provvigioni' empty states (Paghe, Chiusura mese, Provvigioni, Commesse, Salute, Piano, Contabilità): for the owner, 'Crea la prima azienda' plus a CTA would be clearer.", "selector": "main", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Sidebar header (desktop and mobile drawer)", "issues": ["'Nureal-Amministrazione' wraps onto 2 lines next to the logo and the bell, which looks a bit cramped. Consider text-base or tighter leading."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Consolidated/Compare pages: don't show the Loading spinner when the API returned an error (0-company case)",
+    "Owner-aware empty states with 0 companies (/utenti, /export, accounting and commission pages): suggest creating the first company instead of a permission or role message"
+  ],
+  "critical_code_review_comments": [
+    "Layout.js: with no selected company, the 'Azienda' link points to '/', the same as 'Vista di gruppo'. This is harmless, but it could point to /impostazioni?nuova=1 instead.",
+    "Login inputs have no data-testid (login-email-input, login-password-input, login-submit-button would help tests)",
+    "Non-owners can still open /gruppo/* by direct URL. The API scopes the data, so nothing leaks, but there is no route guard."
+  ],
+  "updated_files": ["/app/frontend/src/components/Layout.js (added data-testid=mobile-header-logo)"],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100% of requested checks passed; 3 low-priority UX issues"},
+  "seed_data_creation": "Company 'TEST_Alpha Srl' (P.IVA IT01234567890). Invited and accepted user test_comm@studio.it / Commerc2026abc (Commercialista on TEST_Alpha). Owner password and 2FA left unchanged.",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (from /app/memory/test_credentials.md)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Real-data mode. Don't create backend tests that hit the public URL. Don't change the owner password or enable 2FA. Owner sees all sections via user.is_owner in Layout.js. Login form inputs have no testids: use input nth(0)/nth(1) and the 'Accedi' button. The company modal 'Salva' must be scoped to the dialog, because Settings has another Salva button."
+}

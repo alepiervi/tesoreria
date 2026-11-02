@@ -4,6 +4,9 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_LABELS } from "../lib/format";
 import { guideForPath } from "../pages/Guide";
+import { Button, Empty } from "./ui";
+
+const OPEN_WITHOUT_COMPANY = ["/impostazioni", "/guida", "/notifiche"];
 
 const ICONS = {
   home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
@@ -191,9 +194,12 @@ export default function Layout() {
     <nav aria-label="Menu principale" className="flex h-full flex-col gap-5 overflow-y-auto bg-side px-4 py-6 text-[#E8EAEE]">
       <div className="flex items-start justify-between gap-2 px-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="flex items-center gap-2 text-lg font-bold tracking-tight text-white">
-            <img src="/logo.png" alt="" data-testid="sidebar-logo" className="h-8 w-8 flex-none rounded-lg" />
-            Nureal-Amministrazione
+          <span className="flex items-center gap-2.5 text-white">
+            <img src="/logo.png" alt="" data-testid="sidebar-logo" className="h-9 w-9 flex-none rounded-lg" />
+            <span className="flex flex-col leading-tight">
+              <span className="text-base font-bold tracking-tight">Nureal</span>
+              <span className="text-xs font-medium text-[#A9AFBC]">Amministrazione</span>
+            </span>
           </span>
           <span className="text-xs text-[#A9AFBC]">{roleText}</span>
         </div>
@@ -247,7 +253,7 @@ export default function Layout() {
 
       <div className="flex items-center justify-between gap-2 bg-side px-4 py-2 lg:hidden">
         <span className="flex items-center gap-2 font-bold text-white">
-          <img src="/logo.png" alt="" className="h-7 w-7 rounded-md" />
+          <img src="/logo.png" alt="" data-testid="mobile-header-logo" className="h-7 w-7 rounded-md" />
           Nureal-Amministrazione
         </span>
         <div className="flex items-center gap-1">
@@ -275,7 +281,10 @@ export default function Layout() {
               </div>
             ) : null;
           })()}
-          <Outlet />
+          {ownerAll && !companies.length && location.pathname !== "/" && !OPEN_WITHOUT_COMPANY.some((p) => location.pathname.startsWith(p)) ? (
+            <Empty title="Crea prima la tua azienda" text="Questa sezione si attiva quando hai almeno un'azienda. Inserisci la prima con la partita IVA corretta."
+              action={<Button data-testid="no-company-create-btn" onClick={() => navigate("/impostazioni?nuova=1")}>+ Crea la prima azienda</Button>} />
+          ) : <Outlet />}
         </div>
       </main>
     </div>
