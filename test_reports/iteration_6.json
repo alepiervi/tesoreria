@@ -1,0 +1,19 @@
+{
+  "summary": "Frontend-only retest of the iteration 5 empty-state fixes and the sidebar header. Owner with 0 companies: the sidebar has 40 links (39 unique hrefs, because Azienda and Vista di gruppo both point to '/'). On all 35 gated pages, the 'Crea prima la tua azienda' Empty state shows with data-testid no-company-create-btn. '/', /notifiche, /guida and /impostazioni render normally. /gruppo/consolidato and /gruppo/confronto show no spinner, and /utenti shows no 'Accesso non consentito'. Clicking the button on /gruppo/consolidato and /export goes to /impostazioni and opens the 'Nuova azienda' modal. The sidebar header shows the logo (36px) next to 'Nureal' (bold, 24px line) and 'Amministrazione' (12px line) on 2 tidy lines, with the bell aligned. This holds on desktop and in the 390x844 mobile drawer. The mobile top bar shows the logo plus 'Nureal-Amministrazione' on one line, which fits. After creating TEST_Alpha Srl through the empty-state CTA, the sidebar has 40 unique links, and all of them render real content: no CTA, no 'Accesso non consentito', no stuck 'Caricamento', no pageerrors and no API 4xx/5xx. The login app-logo is visible (naturalWidth 512).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Layout.js: the 0-company gate sits in Layout, so each page component isn't mounted and makes no failing API calls. Good approach.",
+    "Settings.js reads ?nuova=1 only in the useState initializer. This works because Settings mounts fresh, but it would not reopen the modal if the user were already on /impostazioni. The CTA is hidden there, so this is harmless today.",
+    "The login inputs still have no data-testid"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
+  "seed_data_creation": "Company 'TEST_Alpha Srl' (IT01234567890) created through the UI. Owner password and 2FA unchanged.",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!!",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login: use input nth(0)/nth(1) and the 'Accedi' button. The 0-company gate is in Layout.js (OPEN_WITHOUT_COMPANY). Scope the company modal Salva to [role=dialog]."
+}

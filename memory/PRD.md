@@ -17,6 +17,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 - First-use UX: owner welcome + '+ Crea la prima azienda' opens New company modal (/impostazioni?nuova=1); singular/plural fixes; empty chart axis
 - Full first-use flow tested (company, manual account, CSV/CAMT/PDF import, invoice, deadline, reconciliation, invite)
 
+- 2026-06: owner always sees every menu section (Layout allow()); 0-company owner gets "Crea prima la tua azienda" on gated pages; new Nureal logo (logo.png, favicon.png/.ico, icons, apple-touch) in login, sidebar, mobile header
+
 ## Mocked (demo providers)
 Open banking, SDI, payments, email, WhatsApp, AI assistant
 
