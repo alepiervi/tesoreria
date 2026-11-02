@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_LABELS } from "../lib/format";
@@ -7,6 +7,19 @@ import { guideForPath } from "../pages/Guide";
 import { Button, Empty } from "./ui";
 
 const OPEN_WITHOUT_COMPANY = ["/impostazioni", "/guida", "/notifiche"];
+const DEVELOPER_PATHS = ["/sviluppatore", "/impostazioni", "/guida", "/notifiche"];
+const DEVELOPER_SECTIONS = [
+  {
+    title: "Sviluppatore",
+    items: [
+      { to: "/sviluppatore", label: "Stato del sistema", icon: "pulse", end: true },
+      { to: "/sviluppatore/errori", label: "Errori tecnici", icon: "shieldcheck" },
+      { to: "/sviluppatore/titolare", label: "Invito titolare", icon: "users" },
+    ],
+  },
+  { title: "Aiuto", items: [{ to: "/guida", label: "Guida e video", icon: "help" }] },
+  { title: "Account", items: [{ to: "/impostazioni", label: "Impostazioni", icon: "gear" }] },
+];
 
 const ICONS = {
   home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
@@ -79,10 +92,11 @@ export default function Layout() {
   }, [loadUnread]);
   useEffect(() => { loadUnread(); }, [location.pathname, loadUnread]);
 
+  const dev = Boolean(user?.is_developer);
   const ownerAll = Boolean(user?.is_owner);
   const allow = (perm) => ownerAll || anyCan(perm);
   const multi = companies.length > 1 || ownerAll;
-  const sections = [
+  const sections = dev ? DEVELOPER_SECTIONS : [
     {
       title: "Panoramica",
       items: [
@@ -172,7 +186,9 @@ export default function Layout() {
     },
   ].filter(Boolean).map((s) => ({ ...s, items: s.items.filter(Boolean) })).filter((s) => s.items.length);
 
-  const roleText = !companies.length
+  const roleText = dev
+    ? "Sviluppatore · nessun accesso ai dati"
+    : !companies.length
     ? "Nessuna azienda"
     : roles.length === 1
     ? `${ROLE_LABELS[roles[0]]} · ${companies.length} ${companies.length === 1 ? "azienda" : "aziende"}`
@@ -281,7 +297,9 @@ export default function Layout() {
               </div>
             ) : null;
           })()}
-          {ownerAll && !companies.length && location.pathname !== "/" && !OPEN_WITHOUT_COMPANY.some((p) => location.pathname.startsWith(p)) ? (
+          {dev && !DEVELOPER_PATHS.some((p) => location.pathname.startsWith(p)) ? (
+            <Navigate to="/sviluppatore" replace />
+          ) : ownerAll && !companies.length && location.pathname !== "/" && !OPEN_WITHOUT_COMPANY.some((p) => location.pathname.startsWith(p)) ? (
             <Empty title="Crea prima la tua azienda" text="Questa sezione si attiva quando hai almeno un'azienda. Inserisci la prima con la partita IVA corretta."
               action={<Button data-testid="no-company-create-btn" onClick={() => navigate("/impostazioni?nuova=1")}>+ Crea la prima azienda</Button>} />
           ) : <Outlet />}

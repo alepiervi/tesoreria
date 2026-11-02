@@ -213,7 +213,9 @@ async def invite_info(token: str):
     existing = await db.users.find_one({"email": invite["email"]})
     return {
         "email": invite["email"], "name": invite.get("name", ""), "role": invite["role"],
-        "role_label": ROLES[invite["role"]], "companies": [c["name"] for c in companies],
+        "role_label": "Titolare del gruppo" if invite.get("owner_invite") else ROLES[invite["role"]],
+        "owner_invite": invite.get("owner_invite", False),
+        "companies": [c["name"] for c in companies],
         "existing_user": existing is not None,
     }
 
@@ -223,23 +225,34 @@ async def accept_invite(token: str, body: AcceptIn):
     invite = await _valid_invite(token)
     db = get_db()
     user = await db.users.find_one({"email": invite["email"]})
+    owner_invite = invite.get("owner_invite", False)
+    if user and user.get("is_developer") and owner_invite:
+        raise HTTPException(400, "L'account sviluppatore non può diventare titolare.")
     if user:
         if not verify_password(body.password, user["password_hash"]):
             raise HTTPException(401, "Password non corretta per questo account.")
+        if owner_invite and not user.get("is_owner"):
+            await db.users.update_one({"id": user["id"]}, {"$set": {"is_owner": True}})
     else:
         problem = validate_password_strength(body.password)
         if problem:
             raise HTTPException(400, problem)
         user = {
             "id": new_id(), "email": invite["email"], "name": body.name.strip() or invite.get("name", ""),
-            "password_hash": hash_password(body.password), "is_owner": False, "active": True,
+            "password_hash": hash_password(body.password), "is_owner": owner_invite, "active": True,
             "totp_enabled": False, "token_version": 0, "created_at": now_iso(),
         }
         await db.users.insert_one(user)
-    for cid in invite["company_ids"]:
-        if await company_role(user, cid) is None:
+    # Il titolare del gruppo prende in carico tutte le aziende già esistenti
+    company_ids = [c["id"] for c in await db.companies.find({}, {"_id": 0, "id": 1}).to_list(1000)] if owner_invite \
+        else invite["company_ids"]
+    for cid in company_ids:
+        role = await company_role(user, cid)
+        if role is None:
             await db.memberships.insert_one({"id": new_id(), "user_id": user["id"], "company_id": cid,
                                              "role": invite["role"], "created_at": now_iso()})
+        elif owner_invite and role != "titolare":
+            await db.memberships.update_one({"user_id": user["id"], "company_id": cid}, {"$set": {"role": "titolare"}})
     await db.invites.update_one({"id": invite["id"]}, {"$set": {"accepted_at": now_iso()}})
-    await audit.log(user, "invito_accettato", details={"companies": invite["company_ids"]})
+    await audit.log(user, "invito_accettato", details={"companies": company_ids, "titolare": owner_invite})
     return {"access_token": create_access_token(user["id"], user.get("token_version", 0))}

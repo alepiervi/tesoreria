@@ -56,7 +56,11 @@ export default function AcceptInvite() {
           <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6">
             <div className="flex flex-col gap-1">
               <h1 className="text-lg font-semibold">Sei stato invitato come {info.role_label}</h1>
-              <p className="text-sm text-muted">Avrai accesso a: {info.companies.join(", ")}.</p>
+              <p className="text-sm text-muted">
+                {info.owner_invite
+                  ? "Potrai creare le aziende del gruppo, vedere tutti i dati e invitare i collaboratori."
+                  : `Avrai accesso a: ${info.companies.join(", ")}.`}
+              </p>
               <p className="text-sm text-muted">Account: <strong className="text-ink">{info.email}</strong></p>
             </div>
             <ErrorBox>{error}</ErrorBox>

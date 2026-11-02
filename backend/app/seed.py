@@ -70,15 +70,29 @@ def _tx(company_id, account_id, d: str, desc: str, cents: int, status="da_riconc
             "exclusion_reason": reason, "allocations": [], "created_at": now_iso()}
 
 
-async def ensure_owner(email: str, password: str, name: str) -> bool:
+async def ensure_developer(email: str, password: str, name: str) -> str | None:
+    """Crea l'account Sviluppatore o converte quello esistente: niente titolarità e nessun accesso alle aziende."""
     db = get_db()
-    if not email or not password or await db.users.count_documents({}) > 0:
-        return False
+    if not email or not password:
+        return None
+    email = email.strip().lower()
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        has_access = await db.memberships.count_documents({"user_id": existing["id"]}) > 0
+        if existing.get("is_developer") and not existing.get("is_owner") and not has_access:
+            return None
+        await db.memberships.delete_many({"user_id": existing["id"]})
+        await db.users.update_one({"id": existing["id"]}, {"$set": {"is_developer": True, "is_owner": False},
+                                                           "$inc": {"token_version": 1}})
+        return "converted"
+    if await db.users.count_documents({"is_developer": True}) > 0:
+        return None
     await db.users.insert_one({
-        "id": new_id(), "email": email.strip().lower(), "name": name, "password_hash": hash_password(password),
-        "is_owner": True, "active": True, "totp_enabled": False, "token_version": 0, "created_at": now_iso(),
+        "id": new_id(), "email": email, "name": name, "password_hash": hash_password(password),
+        "is_owner": False, "is_developer": True, "active": True, "totp_enabled": False, "token_version": 0,
+        "created_at": now_iso(),
     })
-    return True
+    return "created"
 
 
 async def seed_if_empty() -> bool:

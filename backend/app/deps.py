@@ -28,6 +28,9 @@ async def get_current_user(
 
 
 async def get_memberships(user_id: str) -> list[dict]:
+    # Lo sviluppatore non ha mai accessi alle aziende, anche se qualcuno li inserisse a mano nel database
+    if await get_db().users.count_documents({"id": user_id, "is_developer": True}) > 0:
+        return []
     cursor = get_db().memberships.find({"user_id": user_id}, {"_id": 0})
     return await cursor.to_list(1000)
 
@@ -43,7 +46,7 @@ async def company_role(user: dict, company_id: str) -> str | None:
 
 async def require(user: dict, company_id: str, permission: str) -> str:
     """Verifica che l'utente abbia il permesso sull'azienda. Restituisce il ruolo."""
-    role = await company_role(user, company_id)
+    role = None if user.get("is_developer") else await company_role(user, company_id)
     if role is None:
         # 404 e non 403: chi non ha accesso non deve sapere che l'azienda esiste
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Azienda non trovata.")
@@ -53,8 +56,13 @@ async def require(user: dict, company_id: str, permission: str) -> str:
 
 
 def require_owner(user: dict):
-    if not user.get("is_owner"):
+    if not user.get("is_owner") or user.get("is_developer"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Operazione riservata al titolare.")
+
+
+def require_developer(user: dict):
+    if not user.get("is_developer"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Operazione riservata allo sviluppatore.")
 
 
 async def user_permissions_by_company(user: dict) -> dict[str, dict]:

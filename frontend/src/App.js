@@ -42,6 +42,9 @@ import Consolidated from "./pages/group/Consolidated";
 import GroupCash from "./pages/group/GroupCash";
 import Activations from "./pages/commissions/Activations";
 import Guide from "./pages/Guide";
+import DevErrors from "./pages/developer/Errors";
+import DevOwnerInvite from "./pages/developer/OwnerInvite";
+import DevStatus from "./pages/developer/Status";
 import CommissionSetup from "./pages/commissions/Setup";
 import CommissionStatements from "./pages/commissions/Statements";
 
@@ -101,6 +104,9 @@ export default function App() {
               <Route path="/provvigioni" element={<Activations />} />
               <Route path="/provvigioni/rendiconti" element={<CommissionStatements />} />
               <Route path="/provvigioni/impostazioni" element={<CommissionSetup />} />
+              <Route path="/sviluppatore" element={<DevStatus />} />
+              <Route path="/sviluppatore/errori" element={<DevErrors />} />
+              <Route path="/sviluppatore/titolare" element={<DevOwnerInvite />} />
               <Route path="/guida" element={<Guide />} />
               <Route path="/guida/:guideId" element={<Guide />} />
               <Route path="*" element={<Navigate to="/" replace />} />

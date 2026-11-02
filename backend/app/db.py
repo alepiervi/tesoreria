@@ -43,6 +43,7 @@ async def create_indexes():
     await db.notes.create_index([("target_type", 1), ("target_id", 1)])
     await db.documents.create_index("company_id")
     await db.invites.create_index("token_hash", unique=True)
+    await db.system_errors.create_index("fingerprint", unique=True)
     await db.audit.create_index([("at", -1)])
     await db.recurring.create_index("company_id")
     await db.statement_imports.create_index([("account_id", 1), ("at", -1)])

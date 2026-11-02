@@ -36,7 +36,8 @@ def public_user(user: dict) -> dict:
         "id": user["id"],
         "email": user["email"],
         "name": user.get("name", ""),
-        "is_owner": user.get("is_owner", False),
+        "is_owner": user.get("is_owner", False) and not user.get("is_developer", False),
+        "is_developer": user.get("is_developer", False),
         "totp_enabled": user.get("totp_enabled", False),
     }
 

@@ -24,11 +24,11 @@ export default function Settings() {
         <PasswordCard />
       </div>
 
-      <NotificationPrefs />
-      <CategoryRules />
+      {!user.is_developer && <NotificationPrefs />}
+      {!user.is_developer && <CategoryRules />}
       {user.is_owner && <Outbox />}
 
-      <Card title="Le tue aziende" actions={user.is_owner && <Button data-testid="new-company-btn" onClick={() => setEditing({})}>+ Nuova azienda</Button>}>
+      {!user.is_developer && <Card title="Le tue aziende" actions={user.is_owner && <Button data-testid="new-company-btn" onClick={() => setEditing({})}>+ Nuova azienda</Button>}>
         <ul className="divide-y divide-soft">
           {companies.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
@@ -40,7 +40,7 @@ export default function Settings() {
             </li>
           ))}
         </ul>
-      </Card>
+      </Card>}
 
       <Card title="Sicurezza della sessione">
         <div className="flex flex-col gap-3">
