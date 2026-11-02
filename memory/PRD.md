@@ -23,6 +23,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: Developer role (is_developer): former owner converted at startup (DEVELOPER_* env), zero company access (get_memberships/require block), menu limited to Stato del sistema, Errori tecnici (sanitized server+browser errors, collection system_errors), Invito titolare (owner invite -> is_owner + titolare on all companies)
 
+- 2026-06: Mandatory 2FA at every login for all roles (REQUIRE_2FA_LOGIN): forced enrollment with setup_token, 10 single-use recovery codes, TOTP replay protection, code failures count toward lockout, owner can reset collaborators 2FA; invites never give a session; security headers; JWT_SECRET required; developer password only as bcrypt hash (DEVELOPER_PASSWORD_HASH); no passwords in code, README, memory or bundle; owners cannot modify other owners; new companies go to all owners
+
 ## Mocked (demo providers)
 Open banking, SDI, payments, email, WhatsApp, AI assistant
 

@@ -1,0 +1,28 @@
+{
+  "summary": "Follow-up on set_role/accept_invite hardening. Backend: 8/8 live API tests passed against the public URL. PUT /members/{id}/companies/{cid} returned 404 for a user with no shared company (collaborator whose access was revoked), for an unknown id and for the developer id. It returned 400 for a deactivated collaborator and left the role unchanged. An active collaborator role change returned 200 and was saved. A deactivated existing user accepting a new invite got 403 with both the right and a wrong password, and the invite stayed pending. A deactivated user's login was blocked. Developer forced 2FA enrollment (QR/secret, 10 recovery codes) worked, then login returned 2fa_required and succeeded with a TOTP code. Frontend: owner A logged in through the UI with password and TOTP. On /utenti, owner B's row shows data-testid owner-locked-note-{B.id} with the right text and a disabled role select. A's own row has no note.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "POST /api/invites", "issue": "An invite can still be created for the email of a deactivated user. That invite can never be accepted (403) and stays in 'Inviti in attesa'. Consider rejecting it, or warning, at creation time."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Members role select (deactivated user row)", "issue": "The row is dimmed but the role select is still enabled. Changing it hits the backend 400 ('riattivalo prima'). Disable the select when m.active is false.", "selector": "select#role-{userId}-{companyId}", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/tmp/iter14/test_iter14.py", "/app/test_reports/pytest/iter14.xml"],
+  "action_items": [
+    "(Low) Disable the role select for deactivated users in Members.js",
+    "(Low) Optionally block or warn on POST /invites for an email that belongs to a deactivated user"
+  ],
+  "critical_code_review_comments": [
+    "accept_invite returns 403 'account disattivato' before checking the password. Anyone holding the invite link can learn the account status without the password. This is low risk because the token is secret, but checking the password first would be stricter.",
+    "set_role checks for a shared company across all managed companies, not only company_id. This is correct because require() already checks company_id."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Developer is now 2FA-enrolled (secret in /tmp/iter14/state.json key dev_secret). Created TEST owner A test_ownera_9275ec@example.com (enrolled, secret in state.json A_secret, pw TestPass12345), owner B test_ownerb_7980e0@example.com (not enrolled), company TEST_Co1_9275ec, collaborators X (revoked), Y (deactivated, with a pending invite), Z (amministrazione).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Tests are in /tmp/iter14 (test_iter14.py, setup_b.py). Run them with env DEV_PW plus REACT_APP_BACKEND_URL. Read the developer TOTP secret from /tmp/iter14/state.json. Wait 31s between logins of the same user (TOTP replay guard). No files were added to /app/backend/tests."
+}

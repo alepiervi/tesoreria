@@ -174,6 +174,8 @@ async def create_invite(body: InviteIn, user: dict = Depends(get_current_user)):
         raise HTTPException(400, "Email non valida.")
     if await get_db().users.count_documents({"email": email, "is_developer": True}) > 0:
         raise HTTPException(400, "L'account sviluppatore non può avere accesso ai dati delle aziende.")
+    if await get_db().users.count_documents({"email": email, "active": False}) > 0:
+        raise HTTPException(400, "Questo account è disattivato: riattivalo da Utenti e accessi invece di invitarlo.")
     token = new_invite_token()
     invite = {
         "id": new_id(), "email": email, "name": body.name.strip(), "role": body.role,

@@ -94,7 +94,7 @@ export default function Members() {
                     <div key={a.company_id} className="flex flex-wrap items-center gap-3 rounded-lg bg-page px-3 py-2">
                       <span className="min-w-[160px] flex-1 text-sm font-semibold">{a.company_name}</span>
                       <label htmlFor={`role-${m.id}-${a.company_id}`} className="sr-only">Ruolo su {a.company_name}</label>
-                      <select id={`role-${m.id}-${a.company_id}`} className="input min-h-[40px] w-auto text-[13px]" value={a.role} disabled={m.is_me || m.is_owner}
+                      <select id={`role-${m.id}-${a.company_id}`} className="input min-h-[40px] w-auto text-[13px]" value={a.role} disabled={m.is_me || m.is_owner || !m.active}
                         onChange={(e) => act(() => api.put(`/members/${m.id}/companies/${a.company_id}`, { role: e.target.value }), "Ruolo aggiornato")}>
                         {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
