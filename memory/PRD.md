@@ -19,6 +19,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: owner always sees every menu section (Layout allow()); 0-company owner gets "Crea prima la tua azienda" on gated pages; new Nureal logo (logo.png, favicon.png/.ico, icons, apple-touch) in login, sidebar, mobile header
 
+- 2026-06: auto-logout after 15 min inactivity (frontend/src/lib/idle.js): shared across tabs, warning 60s before, checks on reopen, login notice
+
 ## Mocked (demo providers)
 Open banking, SDI, payments, email, WhatsApp, AI assistant
 

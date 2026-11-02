@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only retest of the 15-minute idle auto-logout, run in Playwright on the public URL at 1920x1080. All requested scenarios PASS and there were no pageerrors. (1) Owner login lands on '/'. No warning and no logout while active. (2) With last_activity set to 14:30 ago, idle-warning appears with idle-seconds=30. A mouse move dismisses it. (3) With last_activity set to 16 min ago, the user goes straight to /login?scaduta=1. idle-logout-notice reads 'Sei stato disconnesso dopo 15 minuti di inattività...'. The token is null and the nureal_idle_logout flag has been cleared by Login. (4) Re-login works and the user is still on '/' after 5.5s. (5) Reopen: in one evaluate, last_activity was set to 20 min ago and the page navigated to /impostazioni. The user ends on /login with the idle-logout-notice visible and the token null. The final URL is /login without ?scaduta=1, and the notice shows via the localStorage flag (see minor note). (6) Reloading /login afterwards no longer shows the notice. (7) Manual sidebar 'Esci' goes to /login with no notice and the token null. (8) Two tabs: tab B shows the warning (30s). A mouse move in tab A hides it in tab B. At timeout, both tabs land on /login?scaduta=1 with the notice.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Reopen scenario", "issues": ["Minor: the final URL is /login, not /login?scaduta=1. The navigation log shows /impostazioni -> /login, likely the ProtectedRoute <Navigate to='/login'>. Probable cause: when the old page unloads, visibilitychange runs the idle check, which sets the flag and clears the token. The new page then has no token and ProtectedRoute redirects without the query. The notice still shows because of the flag, so the user is not affected."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The sidebar 'Esci' button (Layout.js:239) has no data-testid. Add data-testid='sidebar-logout-button'.",
+    "The idle logout is still client-side only. The JWT stays valid on the server until it expires (same note as iteration 7).",
+    "After the reopen redirect, location.state.from is kept, so the next login goes back to the deep link (/impostazioni). This is reasonable behaviour."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
+  "seed_data_creation": "None. Owner password and 2FA unchanged.",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!!",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login uses #email, #password and the 'Accedi' button. After a guarded redirect, login returns to location.state.from, not '/'. Simulate idle by setting localStorage nureal_last_activity via evaluate. Wait more than 5.5s after any mouse activity because of the write throttle."
+}
