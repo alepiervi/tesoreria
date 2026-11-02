@@ -10,8 +10,11 @@ export default function Settings() {
   const { user, companies, can, reload, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [editing, setEditing] = useState(() => (user.is_owner && params.get("nuova") === "1" ? {} : null));
+  useEffect(() => {
+    if (params.has("nuova")) setParams({}, { replace: true });
+  }, [params, setParams]);
 
   return (
     <>

@@ -25,7 +25,7 @@ export function MonthlyChart({ data }) {
         <BarChart data={data} barGap={4} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="#EEF0F2" />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
-          <YAxis domain={[(m) => Math.min(m, 0), (m) => Math.max(m, 100000)]} tickFormatter={eurK} tick={AXIS} axisLine={false} tickLine={false} width={52} />
+          <YAxis domain={[(m) => Math.min(m, 0), (m) => Math.max(m, 400000)]} tickFormatter={eurK} tick={AXIS} axisLine={false} tickLine={false} width={52} />
           <Tooltip content={<MoneyTooltip />} cursor={{ fill: "#F5F6F4" }} />
           <Legend iconType="square" wrapperStyle={{ fontSize: 12, color: "#5B6170" }} />
           <Bar dataKey="inflow_cents" name="Entrate" fill="#2346D8" radius={[4, 4, 0, 0]} maxBarSize={28} />
@@ -51,7 +51,7 @@ export function ForecastChart({ forecast }) {
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="#EEF0F2" />
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
-          <YAxis domain={[(m) => Math.min(m, 0), (m) => Math.max(m, 100000)]} tickFormatter={eurK} tick={AXIS} axisLine={false} tickLine={false} width={52} />
+          <YAxis domain={[(m) => Math.min(m, 0), (m) => Math.max(m, 400000)]} tickFormatter={eurK} tick={AXIS} axisLine={false} tickLine={false} width={52} />
           <Tooltip content={<MoneyTooltip />} cursor={{ fill: "#F5F6F4" }} />
           <Bar dataKey="balance" name="Saldo previsto" radius={[4, 4, 0, 0]} maxBarSize={36}>
             {data.map((d) => <Cell key={d.label} fill={d.balance < 0 ? "#A8480F" : d.low ? "#E8772E" : "#8FA2EE"} />)}

@@ -1,0 +1,22 @@
+{
+  "summary": "Frontend-only retest of the UX fixes from iteration 3, with 1 owner and 0 companies in the DB. Run with Playwright on the public URL. All 4 requested checks PASS. (1) Owner login: the sidebar subtitle reads 'Nessuna azienda' and the old 'ruoli diversi' text is gone. The dashboard shows 'Benvenuto in Nureal-Amministrazione' and create-first-company-btn. (2) Clicking the CTA goes to /impostazioni?nuova=1 and the 'Nuova azienda' modal opens directly, with #co-name visible. Annulla closes it. (3) /impostazioni without the parameter does not auto-open the modal, and new-company-btn still opens it. (4) Created 'TEST_Iter4 Srl' (P.IVA 01234567890) through the modal. The group dashboard subtitle reads '1 azienda · 0 conti collegati' and the sidebar reads 'Titolare · 1 azienda'. The empty charts' Y-axis ticks are 0k, 0,3k, 0,5k, 0,8k, 1k, with no repeated '0k'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Group dashboard empty charts", "issues": ["Nit: the Y ticks at 250€ and 750€ are rounded to '0,3k' and '0,8k' by eurK. Showing 2 decimals, or using integer-friendly ticks (0, 200, 400...), would read better."]},
+      {"screen": "Impostazioni ?nuova=1", "issues": ["Nit: ?nuova=1 stays in the URL after the modal is closed or saved, so reloading the page reopens the modal. You could clear the param with setSearchParams on open or close."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": ["Optional: clear the ?nuova=1 query param once the modal is opened.", "Optional: show nicer Y tick labels for small values (0,25k instead of 0,3k)."],
+  "critical_code_review_comments": ["Settings.js reads the ?nuova=1 param only in the useState initializer. This works on first mount; if the user navigates to ?nuova=1 while already on /impostazioni, the modal won't open. That is unlikely, since the CTA is on the dashboard."],
+  "updated_files": ["/app/test_reports/iteration_4.json"],
+  "success_rate": {"backend": "N/A (skipped as requested)", "frontend": "100% (4/4 checks)"},
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, 2FA not enabled)",
+  "seed_data_creation": "Created 1 company, 'TEST_Iter4 Srl' (P.IVA 01234567890), through the UI. The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Real-data mode. Do not create backend tests that hit the public URL. Do not change the owner password or enable 2FA."
+}
