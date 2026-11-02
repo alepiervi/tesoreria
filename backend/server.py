@@ -16,7 +16,7 @@ from app.routers import (
     accounting, assistant, audit_log, auth, banks, commissions, companies, control, dashboard, deadlines, documents, exports, intercompany, invoices,
     members, notes, notifications, operations, planning, receivables, transactions,
 )
-from app.seed import DEMO_PASSWORD, ensure_developer, seed_if_empty
+from app.seed import DEMO_PASSWORD, DEMO_PASSWORD_GENERATED, ensure_developer, seed_if_empty
 from app.routers import developer
 from app.services.errors import record_server_error
 
@@ -30,7 +30,9 @@ async def lifespan(app: FastAPI):
         logger.warning("JWT_SECRET è quello di esempio o troppo corto: impostane uno lungo e casuale nel file .env")
     await create_indexes()
     if settings.seed_demo and await seed_if_empty():
-        logger.info("Caricati i dati di esempio (utente: titolare@demo.it, password: %s).", DEMO_PASSWORD)
+        logger.info("Caricati i dati di esempio (utente: titolare@demo.it).")
+        if DEMO_PASSWORD_GENERATED:
+            print(f"Password degli utenti demo (solo per questa prova in locale): {DEMO_PASSWORD}", flush=True)
     if not settings.seed_demo:
         dev = await ensure_developer(settings.developer_email, settings.developer_password_hash, settings.developer_name)
         if dev:

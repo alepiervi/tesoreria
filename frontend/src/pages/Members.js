@@ -74,13 +74,13 @@ export default function Members() {
                   </span>
                   <Badge tone={m.totp_enabled ? "blue" : "orange"}>{m.totp_enabled ? "Verifica in due passaggi attiva" : "Verifica da attivare al prossimo accesso"}</Badge>
                   {!m.active && <Badge>Disattivato</Badge>}
-                  {user.is_owner && !m.is_me && m.totp_enabled && (
+                  {user.is_owner && !m.is_me && !m.is_owner && m.totp_enabled && (
                     <Button variant="secondary" className="min-h-[40px]" data-testid={`reset-2fa-${m.id}`}
                       onClick={() => window.confirm(`Azzerare la verifica in due passaggi di ${m.email}? Al prossimo accesso dovrà riattivarla con il nuovo telefono.`) && act(() => api.post(`/members/${m.id}/reset-2fa`), "Verifica azzerata")}>
                       Azzera verifica
                     </Button>
                   )}
-                  {user.is_owner && !m.is_me && (
+                  {user.is_owner && !m.is_me && !m.is_owner && (
                     m.active
                       ? <Button variant="danger" className="min-h-[40px]" onClick={() => window.confirm(`Bloccare ${m.email} su tutte le aziende?`) && act(() => api.post(`/members/${m.id}/deactivate`), "Utente disattivato")}>Disattiva</Button>
                       : <Button variant="secondary" className="min-h-[40px]" onClick={() => act(() => api.post(`/members/${m.id}/activate`), "Utente riattivato")}>Riattiva</Button>

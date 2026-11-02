@@ -17,13 +17,13 @@ def _bool(name: str, default: bool = False) -> bool:
 class Settings:
     mongo_url: str = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name: str = os.environ.get("DB_NAME", "tesoreria")
-    jwt_secret: str = os.environ.get("JWT_SECRET", "dev-secret-change-me")
+    jwt_secret: str = os.environ["JWT_SECRET"]
     jwt_expire_hours: int = int(os.environ.get("JWT_EXPIRE_HOURS", "12"))
     cors_origins: list[str] = [
-        o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()
+        o.strip() for o in os.environ.get("CORS_ORIGINS", os.environ.get("FRONTEND_URL", "http://localhost:3000")).split(",") if o.strip()
     ]
     frontend_url: str = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
-    seed_demo: bool = _bool("SEED_DEMO", True)
+    seed_demo: bool = _bool("SEED_DEMO", False)
     developer_email: str = os.environ.get("DEVELOPER_EMAIL", "")
     # Solo l'hash bcrypt: la password in chiaro non è mai scritta nella configurazione
     developer_password_hash: str = os.environ.get("DEVELOPER_PASSWORD_HASH", "")

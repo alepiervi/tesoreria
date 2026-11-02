@@ -10,6 +10,7 @@ export default function AcceptInvite() {
   const [loadError, setLoadError] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ export default function AcceptInvite() {
     }
     setBusy(true);
     try {
-      const res = await api.post(`/invites/token/${token}/accept`, { name, password });
+      const res = await api.post(`/invites/token/${token}/accept`, { name, password, totp_code: code || undefined });
       navigate("/login", { replace: true, state: { email: res.data.email, invited: true } });
     } catch (err) {
       setError(errorMessage(err));
@@ -62,9 +63,16 @@ export default function AcceptInvite() {
             </div>
             <ErrorBox>{error}</ErrorBox>
             {info.existing_user ? (
-              <Field label="La tua password attuale" htmlFor="pw">
-                <input id="pw" type="password" required autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </Field>
+              <>
+                <Field label="La tua password attuale" htmlFor="pw">
+                  <input id="pw" type="password" required autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </Field>
+                {info.existing_totp && (
+                  <Field label="Codice di verifica" htmlFor="invite-code" hint="Il codice a 6 cifre dall'app sul telefono.">
+                    <input id="invite-code" inputMode="numeric" maxLength={6} required className="input w-40" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} data-testid="invite-totp-code" />
+                  </Field>
+                )}
+              </>
             ) : (
               <>
                 <Field label="Nome e cognome (o nome dello studio)" htmlFor="name">

@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 11: mandatory 2FA (TOTP) at login for every role. Backend: 12/12 pytest tests pass in /tmp/test_iter11.py, run against the public URL. Covered: security headers, no secrets in the JS bundle, password-only login gives 2fa_required, TOTP replay rejected, recovery codes are single use and work in any case with or without the dash, 2fa/disable returns 400, developer GET /companies returns [], a token without typ is rejected, setup_token gets 401 on /auth/me, /companies GET and POST, setup_token rejected after enrollment, regenerating recovery codes invalidates the old ones, collaborator enrollment plus reset-2fa (old session gets 401 and the next login returns setup_required again), owner cannot reset their own 2FA, a non-owner cannot reset, 5 wrong codes give 429 'Troppi tentativi' on a throwaway titolare. Frontend (Playwright): all requested flows pass. Developer enrollment: QR and secret shown, wrong code gives an error, 10 recovery codes, 'Entra nel programma' disabled until the checkbox is ticked, then lands on /sviluppatore. Code step: replay rejected in the UI, next-window code accepted, toggle-recovery works (lowercase without dash), reused recovery code rejected. Settings card shows 'Attiva e obbligatoria per tutti', recovery-codes-left and no Disattiva button. Regenerating in the UI gives 10 new codes; an old code then fails and a new one works. Owner invite in the UI: redirect to /login with invite-accepted-notice, email prefilled, no token stored, forced enrollment, full owner menu (39 items). Collaborator invite: forced enrollment. Owner clicks reset-2fa-{id}, gets the 'Verifica azzerata' toast, and the collaborator must enroll again. Idle logout and developer isolation still work. Working tree grep for the developer password and Demo2026demo (excluding node_modules/.git/test_reports/backend/.env): 0 hits. BUT git history still contains both strings.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "git repository history", "issue": "The developer password ('[password sviluppatore]') appears in 19 places in `git log --all -p` and 'Demo2026demo' in 33, in older commits of memory/test_credentials.md and test_reports/iteration_3..9.json. If the repo is pushed or made public, the password is exposed even though the working tree is clean. The developer password must be rotated, and the history rewritten (git filter-repo / BFG) or a fresh repo published.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "app/config.py", "issue": "JWT_SECRET falls back to the hard-coded 'dev-secret-change-me' when the env var is missing. In public code this lets anyone forge tokens if the env var is ever unset. Fail fast instead of defaulting. SEED_DEMO also defaults to True and CORS_ORIGINS defaults to '*'."},
+      {"endpoint": "CORS", "issue": "Access-Control-Allow-Origin is '*' (bearer tokens, allow_credentials=False, so not directly exploitable). Explicit origins are recommended."},
+      {"endpoint": "server.py startup", "issue": "When demo seeding runs, the generated DEMO_PASSWORD is written to the server log in clear text ('Caricati i dati di esempio ... password: %s')."},
+      {"endpoint": "POST /api/members/{id}/reset-2fa and /deactivate", "issue": "Any titolare can reset 2FA for, or deactivate, another titolare of the same group (seen in the Members UI: Azzera verifica/Disattiva shown on other titolari). Confirm this is intended."},
+      {"endpoint": "POST /api/invites/token/{t}/accept (existing user)", "issue": "An existing user accepts with the password only (no 2nd factor) to gain the new memberships. Low risk because it still needs a valid invite token."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login.js", "issues": ["The DEMO array (titolare@demo.it, etc.) and the text 'la password è nel log del server' are still in the code and bundle. They are hidden by REACT_APP_SHOW_DEMO_LOGIN, but the default is shown (!== 'false'). Remove them for production."]},
+      {"screen": "Members.js", "issues": ["Many interactive elements have no data-testid (invite modal inputs, Disattiva/Riattiva, role selects, Revoca, Copia link)."]}
+    ]
+  },
+  "test_report_links": ["/tmp/test_iter11.py (not in /app/backend/tests, as requested; reads DEV_PW/DEV_SECRET/DEV_CODES from env)"],
+  "action_items": [
+    "Rotate the developer password and purge it (and Demo2026demo) from git history before any public push",
+    "Remove the hard-coded JWT_SECRET default in config.py (fail fast); also review the SEED_DEMO and CORS defaults",
+    "Stop logging DEMO_PASSWORD in clear text",
+    "Remove the demo login buttons and DEMO list from Login.js, or default SHOW_DEMO to false",
+    "Decide whether a titolare may reset 2FA for, or deactivate, another titolare"
+  ],
+  "critical_code_review_comments": [
+    "The 2FA implementation is solid: atomic replay protection via a totp_last_step conditional update, recovery codes stored as SHA-256 hashes and removed atomically with $pull, wrong codes counted toward lockout, typ-checked JWTs, and a token_version bump on reset",
+    "totp_step accepts the +1 window, so two logins inside one 30 s window are possible (current, then next). This is acceptable"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Test users (all with password TestOwner2026x): owners test_owner_*, test_lock_* (locked), test_uiowner_*, test_rs_*; collaborators test_collab_*, test_uicollab_*, test_rscollab_*. Companies: TEST_Azienda 2FA, TEST_UI Azienda, TEST_Reset Azienda. The developer is now enrolled in 2FA (the main agent plans to wipe the DB).",
+  "test_credentials": "Developer: alessandro.piervincenzi@gmail.com / [password sviluppatore] (not persisted). memory/test_credentials.md correctly holds no passwords.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "TOTP codes are computed from the totp-secret text (pyotp or a stdlib HMAC). Each step is single-use per user; the step+1 code is accepted. The token is in localStorage key 'tesoreria_token'. Logout button: role=button name 'Esci'. The owner Members page shows reset-2fa-{id} for every non-self member, including other titolari, so target a specific id."
+}

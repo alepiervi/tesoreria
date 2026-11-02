@@ -11,7 +11,7 @@ const DEMO = [
   ["amministrazione@demo.it", "Amministrazione"],
   ["commercialista@demo.it", "Commercialista"],
 ];
-const SHOW_DEMO = process.env.REACT_APP_SHOW_DEMO_LOGIN !== "false";
+const SHOW_DEMO = process.env.REACT_APP_SHOW_DEMO_LOGIN === "true";
 
 export default function Login() {
   const { user, login } = useAuth();

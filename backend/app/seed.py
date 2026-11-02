@@ -18,6 +18,7 @@ from .services.categories import categorize
 from .services.invoices import register_invoice
 from .utils import mask_iban, new_id, now_iso, today
 
+DEMO_PASSWORD_GENERATED = not os.environ.get("DEMO_PASSWORD")
 DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD") or secrets.token_urlsafe(12) + "7a"
 
 COMPANIES = [

@@ -34,6 +34,7 @@ class RoleIn(BaseModel):
 class AcceptIn(BaseModel):
     name: str = ""
     password: str
+    totp_code: str | None = None
 
 
 async def _managed_company_ids(user: dict) -> list[str]:
@@ -126,6 +127,8 @@ async def deactivate(user_id: str, user: dict = Depends(get_current_user)):
     target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(404, "Utente non trovato.")
+    if target.get("is_owner"):
+        raise HTTPException(403, "Un titolare non può disattivare un altro titolare.")
     await db.users.update_one({"id": user_id}, {"$set": {"active": False}, "$inc": {"token_version": 1}})
     await audit.log(user, "utente_disattivato", target=target["email"])
     return {"ok": True}
@@ -219,6 +222,7 @@ async def invite_info(token: str):
         "owner_invite": invite.get("owner_invite", False),
         "companies": [c["name"] for c in companies],
         "existing_user": existing is not None,
+        "existing_totp": bool(existing and existing.get("totp_enabled")),
     }
 
 
@@ -233,6 +237,10 @@ async def accept_invite(token: str, body: AcceptIn):
     if user:
         if not verify_password(body.password, user["password_hash"]):
             raise HTTPException(401, "Password non corretta per questo account.")
+        if user.get("totp_enabled"):
+            from .auth import check_second_factor
+            if not body.totp_code or not await check_second_factor(db, user, body.totp_code):
+                raise HTTPException(401, "Codice di verifica non valido o già usato.")
         if owner_invite and not user.get("is_owner"):
             await db.users.update_one({"id": user["id"]}, {"$set": {"is_owner": True}})
     else:
@@ -273,6 +281,8 @@ async def reset_2fa(user_id: str, user: dict = Depends(get_current_user)):
     target = await db.users.find_one({"id": user_id})
     if not target or target.get("is_developer") or not shared & target_companies:
         raise HTTPException(404, "Utente non trovato.")
+    if target.get("is_owner"):
+        raise HTTPException(403, "La verifica di un titolare si recupera solo con i suoi codici di recupero.")
     await db.users.update_one({"id": user_id}, {
         "$set": {"totp_enabled": False, "totp_secret": None, "totp_pending_secret": None, "recovery_codes": []},
         "$inc": {"token_version": 1}})
