@@ -22,6 +22,6 @@ if not exist node_modules call npm install --no-audit --no-fund
 start "Tesoreria - frontend (non chiudere)" cmd /k "npm start"
 echo.
 echo Tra poco si apre il browser su http://localhost:3000
-echo Accedi con titolare@demo.it  -  password Demo2026demo
+echo Accedi con titolare@demo.it  -  la password compare nella finestra del backend
 echo Per chiudere il programma chiudi le due finestre nere.
 pause

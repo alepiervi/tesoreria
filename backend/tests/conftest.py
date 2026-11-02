@@ -11,6 +11,7 @@ os.environ["SCHEDULER_ENABLED"] = "false"
 os.environ["REQUIRE_2FA_FOR_PAYMENTS"] = "false"
 os.environ["AI_PROVIDER"] = "demo"
 os.environ["EMAIL_PROVIDER"] = "demo"
+os.environ["REQUIRE_2FA_LOGIN"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from mongomock_motor import AsyncMongoMockClient  # noqa: E402

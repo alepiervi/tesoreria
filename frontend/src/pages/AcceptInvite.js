@@ -2,11 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, ErrorBox, Field, Loading } from "../components/ui";
 import { api, errorMessage } from "../lib/api";
-import { useAuth } from "../lib/auth";
 
 export default function AcceptInvite() {
   const { token } = useParams();
-  const { login } = useAuth();
   const navigate = useNavigate();
   const [info, setInfo] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -32,8 +30,7 @@ export default function AcceptInvite() {
     setBusy(true);
     try {
       const res = await api.post(`/invites/token/${token}/accept`, { name, password });
-      await login(res.data.access_token);
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true, state: { email: res.data.email, invited: true } });
     } catch (err) {
       setError(errorMessage(err));
     } finally {

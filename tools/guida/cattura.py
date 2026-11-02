@@ -12,6 +12,7 @@ didascalia) e scrive frontend/src/guide/media.json. Dopo una modifica all'interf
 """
 import html
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -30,7 +31,7 @@ EXAMPLES = ROOT / "esempi"
 BASE = "http://localhost:3000"
 API = "http://localhost:8001/api"
 USERS = {"titolare": "titolare@demo.it", "amministrazione": "amministrazione@demo.it", "commercialista": "commercialista@demo.it"}
-PASSWORD = "Demo2026demo"
+PASSWORD = os.environ["DEMO_PASSWORD"]
 W, H = 1280, 720
 ACCENT = "#E8772E"
 

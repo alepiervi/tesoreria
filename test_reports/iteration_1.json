@@ -25,7 +25,7 @@
   "updated_files": ["/app/backend/tests/test_smoke_all_gets.py"],
   "success_rate": {"backend": "100%", "frontend": "100%"},
   "seed_data_creation": "None; used SEED_DEMO data",
-  "test_credentials": "titolare@demo.it / amministrazione@demo.it / commercialista@demo.it, password Demo2026demo",
+  "test_credentials": "titolare@demo.it / amministrazione@demo.it / commercialista@demo.it, password [password demo]",
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "context_for_next_testing_agent": "Smoke test at /app/backend/tests/test_smoke_all_gets.py covers all GET endpoints for all roles plus commercialista isolation. Company IDs: Alfa 19a8d8b7..., Beta bb5bb271..., Gamma 05fda620-a82d-430c-b5b5-f86c6554de50. UI has few data-testids; use role/text selectors (demo buttons 'Titolare'/'Amministrazione'/'Commercialista', button[type=submit])."

@@ -97,7 +97,7 @@ I permessi sono tutti nel file `backend/app/permissions.py`: per cambiarli basta
 **Il modo più semplice:** installa [Python](https://www.python.org/downloads/) (su Windows spunta «Add python.exe to PATH»)
 e [Node.js](https://nodejs.org/) versione LTS, poi fai doppio clic su **`avvia-demo.bat`** (Windows) oppure lancia
 **`./avvia-demo.sh`** (Mac/Linux). Si apre il browser su http://localhost:3000 con le 3 aziende di prova: accedi con
-`titolare@demo.it` / `Demo2026demo`. I dati sono in memoria e ripartono da capo a ogni avvio.
+`titolare@demo.it` con la password mostrata nella finestra del backend (o quella impostata in `DEMO_PASSWORD`). I dati sono in memoria e ripartono da capo a ogni avvio.
 
 Se preferisci farlo a mano:
 
@@ -131,7 +131,7 @@ Si apre su http://localhost:3000.
 ### Utenti di prova
 
 Al primo avvio, con `SEED_DEMO=true`, vengono create 3 aziende di esempio e questi utenti
-(password per tutti: `Demo2026demo`):
+(password per tutti: quella di `DEMO_PASSWORD`, oppure generata a caso e scritta nel log del backend):
 
 | Email | Ruolo | Aziende |
 |---|---|---|

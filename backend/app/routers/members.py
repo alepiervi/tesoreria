@@ -10,7 +10,7 @@ from ..db import get_db
 from ..deps import company_role, get_current_user, get_memberships, require, require_owner
 from ..permissions import ROLES, has_permission
 from ..security import (
-    create_access_token, hash_password, hash_token, new_invite_token,
+    hash_password, hash_token, new_invite_token,
     validate_password_strength, verify_password,
 )
 from ..utils import clean, new_id, now_iso, now_utc
@@ -257,4 +257,24 @@ async def accept_invite(token: str, body: AcceptIn):
             await db.memberships.update_one({"user_id": user["id"], "company_id": cid}, {"$set": {"role": "titolare"}})
     await db.invites.update_one({"id": invite["id"]}, {"$set": {"accepted_at": now_iso()}})
     await audit.log(user, "invito_accettato", details={"companies": company_ids, "titolare": owner_invite})
-    return {"access_token": create_access_token(user["id"], user.get("token_version", 0))}
+    # Nessuna sessione diretta: si entra sempre dal login con password e verifica in due passaggi
+    return {"ok": True, "email": user["email"]}
+
+
+@router.post("/members/{user_id}/reset-2fa")
+async def reset_2fa(user_id: str, user: dict = Depends(get_current_user)):
+    """Per chi ha perso il telefono: al prossimo accesso dovrà riattivare la verifica in due passaggi."""
+    require_owner(user)
+    if user_id == user["id"]:
+        raise HTTPException(400, "Non puoi azzerare la tua verifica: usa un codice di recupero.")
+    db = get_db()
+    shared = set(await _managed_company_ids(user))
+    target_companies = {m["company_id"] for m in await get_memberships(user_id)}
+    target = await db.users.find_one({"id": user_id})
+    if not target or target.get("is_developer") or not shared & target_companies:
+        raise HTTPException(404, "Utente non trovato.")
+    await db.users.update_one({"id": user_id}, {
+        "$set": {"totp_enabled": False, "totp_secret": None, "totp_pending_secret": None, "recovery_codes": []},
+        "$inc": {"token_version": 1}})
+    await audit.log(user, "2fa_azzerata", target=target["email"])
+    return {"ok": True}

@@ -16,7 +16,7 @@ from app.routers import (
     accounting, assistant, audit_log, auth, banks, commissions, companies, control, dashboard, deadlines, documents, exports, intercompany, invoices,
     members, notes, notifications, operations, planning, receivables, transactions,
 )
-from app.seed import ensure_developer, seed_if_empty
+from app.seed import DEMO_PASSWORD, ensure_developer, seed_if_empty
 from app.routers import developer
 from app.services.errors import record_server_error
 
@@ -30,9 +30,9 @@ async def lifespan(app: FastAPI):
         logger.warning("JWT_SECRET è quello di esempio o troppo corto: impostane uno lungo e casuale nel file .env")
     await create_indexes()
     if settings.seed_demo and await seed_if_empty():
-        logger.info("Caricati i dati di esempio (utente: titolare@demo.it).")
+        logger.info("Caricati i dati di esempio (utente: titolare@demo.it, password: %s).", DEMO_PASSWORD)
     if not settings.seed_demo:
-        dev = await ensure_developer(settings.developer_email, settings.developer_password, settings.developer_name)
+        dev = await ensure_developer(settings.developer_email, settings.developer_password_hash, settings.developer_name)
         if dev:
             logger.info("Account sviluppatore %s: %s", settings.developer_email, dev)
     if not settings.seed_demo and not settings.require_2fa_for_payments:
@@ -65,6 +65,24 @@ for module in (auth, companies, members, audit_log, banks, transactions, notes, 
 app.include_router(api)
 
 
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cache-Control": "no-store",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for k, v in SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    return response
+
+
 @app.exception_handler(Exception)
 async def unhandled_error(request: Request, exc: Exception):
     logger.exception("Errore non gestito su %s", request.url.path)
@@ -74,7 +92,7 @@ async def unhandled_error(request: Request, exc: Exception):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     # Serve al browser per leggere il nome dei file scaricati (export, XML, documenti)

@@ -18,7 +18,7 @@
   "updated_files": [],
   "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
   "seed_data_creation": "None. Owner password and 2FA unchanged.",
-  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!!",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / [password fornita dall'utente]",
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "context_for_next_testing_agent": "Login uses #email, #password and the 'Accedi' button. After a guarded redirect, login returns to location.state.from, not '/'. Simulate idle by setting localStorage nureal_last_activity via evaluate. Wait more than 5.5s after any mouse activity because of the write throttle."

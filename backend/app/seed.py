@@ -1,12 +1,14 @@
 """Dati di esempio: 3 aziende, 3 utenti con ruoli diversi, conti, movimenti, fatture e scadenze.
 
 Si caricano solo se il database è vuoto e SEED_DEMO=true.
-Utenti demo (password per tutti: Demo2026demo):
+Utenti demo (password: variabile DEMO_PASSWORD, oppure generata a caso e mostrata nel log):
   titolare@demo.it        -> titolare di tutte le aziende
   amministrazione@demo.it -> amministrazione su tutte le aziende
   commercialista@demo.it  -> commercialista solo su Alfa e Beta
 """
+import os
 import random
+import secrets
 from datetime import date, timedelta
 
 from .db import get_db
@@ -16,7 +18,7 @@ from .services.categories import categorize
 from .services.invoices import register_invoice
 from .utils import mask_iban, new_id, now_iso, today
 
-DEMO_PASSWORD = "Demo2026demo"
+DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD") or secrets.token_urlsafe(12) + "7a"
 
 COMPANIES = [
     {"key": "alfa", "name": "Azienda Alfa Srl", "vat": "11111111111", "scale": 1.0,
@@ -70,10 +72,10 @@ def _tx(company_id, account_id, d: str, desc: str, cents: int, status="da_riconc
             "exclusion_reason": reason, "allocations": [], "created_at": now_iso()}
 
 
-async def ensure_developer(email: str, password: str, name: str) -> str | None:
+async def ensure_developer(email: str, password_hash: str, name: str) -> str | None:
     """Crea l'account Sviluppatore o converte quello esistente: niente titolarità e nessun accesso alle aziende."""
     db = get_db()
-    if not email or not password:
+    if not email:
         return None
     email = email.strip().lower()
     existing = await db.users.find_one({"email": email})
@@ -85,10 +87,10 @@ async def ensure_developer(email: str, password: str, name: str) -> str | None:
         await db.users.update_one({"id": existing["id"]}, {"$set": {"is_developer": True, "is_owner": False},
                                                            "$inc": {"token_version": 1}})
         return "converted"
-    if await db.users.count_documents({"is_developer": True}) > 0:
+    if not password_hash.startswith("$2") or await db.users.count_documents({"is_developer": True}) > 0:
         return None
     await db.users.insert_one({
-        "id": new_id(), "email": email, "name": name, "password_hash": hash_password(password),
+        "id": new_id(), "email": email, "name": name, "password_hash": password_hash,
         "is_owner": False, "is_developer": True, "active": True, "totp_enabled": False, "token_version": 0,
         "created_at": now_iso(),
     })

@@ -12,7 +12,7 @@
   "updated_files": [],
   "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
   "seed_data_creation": "Company 'TEST_Alpha Srl' (IT01234567890) created through the UI. Owner password and 2FA unchanged.",
-  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!!",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / [password fornita dall'utente]",
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "context_for_next_testing_agent": "Login: use input nth(0)/nth(1) and the 'Accedi' button. The 0-company gate is in Layout.js (OPEN_WITHOUT_COMPANY). Scope the company modal Salva to [role=dialog]."

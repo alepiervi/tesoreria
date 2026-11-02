@@ -72,8 +72,14 @@ export default function Members() {
                     <span className="block font-semibold">{m.name || m.email}{m.is_me && <span className="font-normal text-muted"> (tu)</span>}</span>
                     <span className="block text-xs text-muted">{m.email} · ultimo accesso {m.last_login_at ? fmtDateTime(m.last_login_at) : "mai"}</span>
                   </span>
-                  <Badge tone={m.totp_enabled ? "blue" : "orange"}>{m.totp_enabled ? "Verifica in due passaggi attiva" : "Senza verifica in due passaggi"}</Badge>
+                  <Badge tone={m.totp_enabled ? "blue" : "orange"}>{m.totp_enabled ? "Verifica in due passaggi attiva" : "Verifica da attivare al prossimo accesso"}</Badge>
                   {!m.active && <Badge>Disattivato</Badge>}
+                  {user.is_owner && !m.is_me && m.totp_enabled && (
+                    <Button variant="secondary" className="min-h-[40px]" data-testid={`reset-2fa-${m.id}`}
+                      onClick={() => window.confirm(`Azzerare la verifica in due passaggi di ${m.email}? Al prossimo accesso dovrà riattivarla con il nuovo telefono.`) && act(() => api.post(`/members/${m.id}/reset-2fa`), "Verifica azzerata")}>
+                      Azzera verifica
+                    </Button>
+                  )}
                   {user.is_owner && !m.is_me && (
                     m.active
                       ? <Button variant="danger" className="min-h-[40px]" onClick={() => window.confirm(`Bloccare ${m.email} su tutte le aziende?`) && act(() => api.post(`/members/${m.id}/deactivate`), "Utente disattivato")}>Disattiva</Button>

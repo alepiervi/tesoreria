@@ -22,7 +22,7 @@
   ],
   "updated_files": ["/app/backend/tests/test_first_use_real.py", "/app/memory/test_credentials.md"],
   "success_rate": {"backend": "100% (18/18)", "frontend": "100% of tested flows"},
-  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, 2FA not enabled). Invited test users created: test_invitato@example.com / Invitato2026!! (deleted during cleanup), ui_invitato@example.com / InvitatoUi2026!!",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / [password fornita dall'utente] (unchanged, 2FA not enabled). Invited test users created: test_invitato@example.com / Invitato2026!! (deleted during cleanup), ui_invitato@example.com / InvitatoUi2026!!",
   "seed_data_creation": "The DB now contains test data: company 'Test Srl' with a manual account 'Intesa Sanpaolo · Conto principale', 15 imported movements, invoice UI-001, deadline 'F24 UI test', and user ui_invitato@example.com (Amministrazione). The API test companies 'TEST_Test Srl' were deleted directly in mongo before the UI run. The main agent planned to wipe the DB anyway.",
   "retest_needed": false,
   "should_main_agent_self_test": true,

@@ -22,6 +22,6 @@ echo "Installo i componenti del frontend (la prima volta ci vuole un po')..."
 trap "kill $BACK 2>/dev/null" EXIT
 echo
 echo "Tra poco si apre il browser su http://localhost:3000"
-echo "Accedi con titolare@demo.it - password Demo2026demo"
+echo "Accedi con titolare@demo.it - la password compare nella finestra del backend"
 echo "Per chiudere il programma premi Ctrl+C in questa finestra."
 npm start

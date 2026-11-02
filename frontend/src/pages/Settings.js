@@ -1,4 +1,4 @@
-import { QRCodeSVG } from "qrcode.react";
+import { RecoveryCodes, TotpSetup } from "../components/TwoFactorSetup";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge, Button, Card, ErrorBox, Field, Loading, Modal, Notice, PageHeader, useToast } from "../components/ui";
@@ -71,62 +71,66 @@ function TwoFactor({ user, onChanged }) {
   const toast = useToast();
   const [setup, setSetup] = useState(null);
   const [code, setCode] = useState("");
+  const [codes, setCodes] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const start = async () => {
-    setError("");
-    try {
-      const res = await api.post("/auth/2fa/setup");
-      setSetup(res.data);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const confirm = async (enable) => {
+  const run = async (fn) => {
     setBusy(true);
     setError("");
     try {
-      await api.post(enable ? "/auth/2fa/enable" : "/auth/2fa/disable", { code });
-      toast(enable ? "Verifica in due passaggi attivata" : "Verifica in due passaggi disattivata");
-      setSetup(null);
-      setCode("");
-      onChanged();
+      await fn();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
   };
+  const start = () => run(async () => setSetup((await api.post("/auth/2fa/setup")).data));
+  const enable = (c) => run(async () => {
+    const res = await api.post("/auth/2fa/enable", { code: c });
+    setSetup(null);
+    setCodes(res.data.recovery_codes);
+  });
+  const regenerate = () => run(async () => {
+    const res = await api.post("/auth/2fa/recovery-codes", { code });
+    setCode("");
+    setCodes(res.data.recovery_codes);
+  });
+  const disable = () => run(async () => {
+    await api.post("/auth/2fa/disable", { code });
+    toast("Verifica in due passaggi disattivata");
+    setCode("");
+    onChanged();
+  });
 
   return (
     <Card title="Verifica in due passaggi" subtitle="Oltre alla password serve un codice dall'app sul telefono">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" data-testid="twofactor-card">
         <ErrorBox>{error}</ErrorBox>
-        {user.totp_enabled ? (
+        {codes ? (
+          <RecoveryCodes codes={codes} doneLabel="Fatto" onDone={() => { setCodes(null); onChanged(); }} />
+        ) : user.totp_enabled ? (
           <>
-            <Notice>Attiva. Per disattivarla inserisci un codice attuale dall'app.</Notice>
-            <Field label="Codice a 6 cifre" htmlFor="tfa-off"><input id="tfa-off" inputMode="numeric" className="input w-40" value={code} onChange={(e) => setCode(e.target.value)} /></Field>
-            <div><Button variant="danger" loading={busy} onClick={() => confirm(false)} disabled={!code}>Disattiva</Button></div>
+            <Notice>
+              Attiva{user.twofa_required ? " e obbligatoria per tutti" : ""}. Codici di recupero rimasti:{" "}
+              <span className="font-semibold" data-testid="recovery-codes-left">{user.recovery_codes_left}</span>.
+            </Notice>
+            <Field label="Codice a 6 cifre dall'app" htmlFor="tfa-code" hint="Serve per generare nuovi codici di recupero (i vecchi smettono di funzionare).">
+              <input id="tfa-code" inputMode="numeric" maxLength={6} className="input w-40" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} data-testid="tfa-code" />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" loading={busy} onClick={regenerate} disabled={code.length !== 6} data-testid="regenerate-recovery-btn">Nuovi codici di recupero</Button>
+              {!user.twofa_required && <Button variant="danger" loading={busy} onClick={disable} disabled={code.length !== 6}>Disattiva</Button>}
+            </div>
           </>
         ) : !setup ? (
           <>
-            <Notice tone="orange">Non attiva. Consigliata per tutti, obbligatoria per chi autorizza pagamenti.</Notice>
+            <Notice tone="orange">Non attiva.</Notice>
             <div><Button onClick={start}>Attiva</Button></div>
           </>
         ) : (
-          <>
-            <p className="text-sm">1. Inquadra il codice con un'app di autenticazione (Google Authenticator, Microsoft Authenticator, 1Password…).</p>
-            <div className="w-fit rounded-xl border border-line bg-white p-3"><QRCodeSVG value={setup.otpauth_uri} size={164} /></div>
-            <p className="text-xs text-muted">Oppure inserisci a mano questa chiave: <span className="font-mono font-semibold text-ink">{setup.secret}</span></p>
-            <p className="text-sm">2. Scrivi il codice che compare nell'app.</p>
-            <Field label="Codice a 6 cifre" htmlFor="tfa-on"><input id="tfa-on" inputMode="numeric" className="input w-40" value={code} onChange={(e) => setCode(e.target.value)} /></Field>
-            <div className="flex gap-2">
-              <Button loading={busy} onClick={() => confirm(true)} disabled={!code}>Conferma</Button>
-              <Button variant="secondary" onClick={() => setSetup(null)}>Annulla</Button>
-            </div>
-          </>
+          <TotpSetup setup={setup} busy={busy} onConfirm={enable} onCancel={() => setSetup(null)} />
         )}
       </div>
     </Card>

@@ -28,7 +28,7 @@
   ],
   "updated_files": ["/app/frontend/src/pages/developer/OwnerInvite.js"],
   "success_rate": {"backend": "100% of the requested checks (the 5 failures in my first run were missing query params, not access issues; re-run with params gave 404)", "frontend": "100% after the input styling fix"},
-  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, no 2FA). Created owners: nuovo.titolare@example.com / Titolare2026!, secondo.titolare@example.com / Titolare2026!",
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password fornita dall'utente] (unchanged, no 2FA). Created owners: nuovo.titolare@example.com / Titolare2026!, secondo.titolare@example.com / Titolare2026!",
   "seed_data_creation": "Owners nuovo.titolare@example.com and secondo.titolare@example.com, company TEST_Alfa Srl with 1 invoice and 1 manual bank account, a client error ('TypeError x'), a lettura invite to the developer's email that the developer accepted, which left a stray membership. The main agent plans to wipe the DB.",
   "retest_needed": false,
   "should_main_agent_self_test": true,

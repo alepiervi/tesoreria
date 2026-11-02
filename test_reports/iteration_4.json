@@ -14,7 +14,7 @@
   "critical_code_review_comments": ["Settings.js reads the ?nuova=1 param only in the useState initializer. This works on first mount; if the user navigates to ?nuova=1 while already on /impostazioni, the modal won't open. That is unlikely, since the CTA is on the dashboard."],
   "updated_files": ["/app/test_reports/iteration_4.json"],
   "success_rate": {"backend": "N/A (skipped as requested)", "frontend": "100% (4/4 checks)"},
-  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, 2FA not enabled)",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / [password fornita dall'utente] (unchanged, 2FA not enabled)",
   "seed_data_creation": "Created 1 company, 'TEST_Iter4 Srl' (P.IVA 01234567890), through the UI. The main agent plans to wipe the DB.",
   "retest_needed": false,
   "should_main_agent_self_test": true,

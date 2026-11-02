@@ -25,7 +25,7 @@
   "updated_files": ["/app/frontend/src/components/Layout.js (added data-testid=mobile-header-logo)"],
   "success_rate": {"backend": "N/A (frontend only)", "frontend": "100% of requested checks passed; 3 low-priority UX issues"},
   "seed_data_creation": "Company 'TEST_Alpha Srl' (P.IVA IT01234567890). Invited and accepted user test_comm@studio.it / Commerc2026abc (Commercialista on TEST_Alpha). Owner password and 2FA left unchanged.",
-  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (from /app/memory/test_credentials.md)",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / [password fornita dall'utente] (from /app/memory/test_credentials.md)",
   "retest_needed": false,
   "should_main_agent_self_test": true,
   "context_for_next_testing_agent": "Real-data mode. Don't create backend tests that hit the public URL. Don't change the owner password or enable 2FA. Owner sees all sections via user.is_owner in Layout.js. Login form inputs have no testids: use input nth(0)/nth(1) and the 'Accedi' button. The company modal 'Salva' must be scoped to the dialog, because Settings has another Salva button."

@@ -1,7 +1,9 @@
+import time
 from datetime import date, timedelta
 
 from app.integrations.sdi import build_fatturapa_xml
 from app.services.fatturapa import parse_fatturapa
+from app.seed import DEMO_PASSWORD
 from tests.conftest import login
 
 
@@ -19,7 +21,7 @@ def test_login_wrong_password(client):
 def test_lockout_after_failed_attempts(client):
     for _ in range(5):
         client.post("/api/auth/login", json={"email": "amministrazione@demo.it", "password": "x"})
-    r = client.post("/api/auth/login", json={"email": "amministrazione@demo.it", "password": "Demo2026demo"})
+    r = client.post("/api/auth/login", json={"email": "amministrazione@demo.it", "password": DEMO_PASSWORD})
     assert r.status_code == 429
 
 
@@ -61,10 +63,12 @@ def test_2fa_flow(client, owner):
     setup = client.post("/api/auth/2fa/setup", headers=owner).json()
     code = pyotp.TOTP(setup["secret"]).now()
     assert client.post("/api/auth/2fa/enable", json={"code": code}, headers=owner).status_code == 200
-    r = client.post("/api/auth/login", json={"email": "titolare@demo.it", "password": "Demo2026demo"})
+    r = client.post("/api/auth/login", json={"email": "titolare@demo.it", "password": DEMO_PASSWORD})
     assert r.status_code == 401 and r.json()["detail"] == "2fa_required"
-    r = client.post("/api/auth/login", json={"email": "titolare@demo.it", "password": "Demo2026demo",
-                                             "totp_code": pyotp.TOTP(setup["secret"]).now()})
+    r = client.post("/api/auth/login", json={"email": "titolare@demo.it", "password": DEMO_PASSWORD, "totp_code": code})
+    assert r.status_code == 401, "lo stesso codice non si può riusare"
+    later = pyotp.TOTP(setup["secret"]).at(time.time() + 30)
+    r = client.post("/api/auth/login", json={"email": "titolare@demo.it", "password": DEMO_PASSWORD, "totp_code": later})
     assert r.status_code == 200
 
 
@@ -79,8 +83,8 @@ def test_invite_accept_and_revoke(client, owner):
     assert info["companies"] == ["Azienda Alfa Srl"] and info["existing_user"] is False
     assert client.post(f"/api/invites/token/{token}/accept", json={"password": "corta"}).status_code == 400
     r = client.post(f"/api/invites/token/{token}/accept", json={"name": "Nuovo", "password": "PasswordSicura1"})
-    assert r.status_code == 200
-    new_headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    assert r.status_code == 200 and "access_token" not in r.json()
+    new_headers = login(client, "nuovo@studio.it", "PasswordSicura1")
     assert list(companies(client, new_headers)) == ["Azienda Alfa Srl"]
     # sola lettura: non può caricare documenti
     r = client.post(f"/api/companies/{alfa}/documents", headers=new_headers,

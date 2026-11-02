@@ -25,8 +25,10 @@ class Settings:
     frontend_url: str = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
     seed_demo: bool = _bool("SEED_DEMO", True)
     developer_email: str = os.environ.get("DEVELOPER_EMAIL", "")
-    developer_password: str = os.environ.get("DEVELOPER_PASSWORD", "")
+    # Solo l'hash bcrypt: la password in chiaro non è mai scritta nella configurazione
+    developer_password_hash: str = os.environ.get("DEVELOPER_PASSWORD_HASH", "")
     developer_name: str = os.environ.get("DEVELOPER_NAME", "Sviluppatore")
+    require_2fa_login: bool = _bool("REQUIRE_2FA_LOGIN", True)
     banking_provider: str = os.environ.get("BANKING_PROVIDER", "demo")
     sdi_provider: str = os.environ.get("SDI_PROVIDER", "demo")
     payments_provider: str = os.environ.get("PAYMENTS_PROVIDER", "demo")
