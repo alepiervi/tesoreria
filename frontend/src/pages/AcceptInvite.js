@@ -44,7 +44,7 @@ export default function AcceptInvite() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
       <div className="flex w-full max-w-[440px] flex-col gap-6">
-        <span className="text-2xl font-bold tracking-tight">Tesoreria di gruppo</span>
+        <span className="text-2xl font-bold tracking-tight">Nureal-Amministrazione</span>
         {loadError ? (
           <ErrorBox>{loadError}</ErrorBox>
         ) : !info ? (

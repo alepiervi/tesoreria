@@ -24,6 +24,9 @@ class Settings:
     ]
     frontend_url: str = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
     seed_demo: bool = _bool("SEED_DEMO", True)
+    owner_email: str = os.environ.get("OWNER_EMAIL", "")
+    owner_password: str = os.environ.get("OWNER_PASSWORD", "")
+    owner_name: str = os.environ.get("OWNER_NAME", "Titolare")
     banking_provider: str = os.environ.get("BANKING_PROVIDER", "demo")
     sdi_provider: str = os.environ.get("SDI_PROVIDER", "demo")
     payments_provider: str = os.environ.get("PAYMENTS_PROVIDER", "demo")

@@ -70,6 +70,17 @@ def _tx(company_id, account_id, d: str, desc: str, cents: int, status="da_riconc
             "exclusion_reason": reason, "allocations": [], "created_at": now_iso()}
 
 
+async def ensure_owner(email: str, password: str, name: str) -> bool:
+    db = get_db()
+    if not email or not password or await db.users.count_documents({}) > 0:
+        return False
+    await db.users.insert_one({
+        "id": new_id(), "email": email.strip().lower(), "name": name, "password_hash": hash_password(password),
+        "is_owner": True, "active": True, "totp_enabled": False, "token_version": 0, "created_at": now_iso(),
+    })
+    return True
+
+
 async def seed_if_empty() -> bool:
     db = get_db()
     if await db.users.count_documents({}) > 0:

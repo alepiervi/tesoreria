@@ -118,4 +118,4 @@ def html_page(title: str, paragraphs: list[str], rows: list[tuple[str, str]] | N
                  f"padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600'>{escape(link_label)}</a></p>")
     return (f"<div style='font-family:system-ui,Segoe UI,sans-serif;color:#15171C;max-width:600px;margin:0 auto;padding:16px'>"
             f"<h2 style='font-size:18px;margin:0 0 16px'>{escape(title)}</h2>{body}"
-            f"<p style='color:#5B6170;font-size:12px;margin-top:24px'>Tesoreria di gruppo</p></div>")
+            f"<p style='color:#5B6170;font-size:12px;margin-top:24px'>Nureal-Amministrazione</p></div>")

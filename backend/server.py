@@ -1,4 +1,4 @@
-"""Tesoreria di gruppo — backend FastAPI.
+"""Nureal-Amministrazione — backend FastAPI.
 
 Avvio in locale:  uvicorn server:app --reload --port 8001
 Tutte le rotte sono sotto il prefisso /api (convenzione usata anche da Emergent).
@@ -15,7 +15,7 @@ from app.routers import (
     accounting, assistant, audit_log, auth, banks, commissions, companies, control, dashboard, deadlines, documents, exports, intercompany, invoices,
     members, notes, notifications, operations, planning, receivables, transactions,
 )
-from app.seed import seed_if_empty
+from app.seed import ensure_owner, seed_if_empty
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("tesoreria")
@@ -28,6 +28,8 @@ async def lifespan(app: FastAPI):
     await create_indexes()
     if settings.seed_demo and await seed_if_empty():
         logger.info("Caricati i dati di esempio (utente: titolare@demo.it).")
+    if not settings.seed_demo and await ensure_owner(settings.owner_email, settings.owner_password, settings.owner_name):
+        logger.info("Creato il titolare %s", settings.owner_email)
     if not settings.seed_demo and not settings.require_2fa_for_payments:
         logger.warning("REQUIRE_2FA_FOR_PAYMENTS=false con dati veri: i pagamenti si autorizzano con la sola password")
     task = None
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="Tesoreria di gruppo", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Nureal-Amministrazione", version="0.1.0", lifespan=lifespan)
 
 api = APIRouter(prefix="/api")
 

@@ -51,7 +51,7 @@ def new_totp_secret() -> str:
 
 
 def totp_uri(secret: str, email: str) -> str:
-    return pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="Tesoreria di gruppo")
+    return pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="Nureal-Amministrazione")
 
 
 def verify_totp(secret: str, code: str) -> bool:

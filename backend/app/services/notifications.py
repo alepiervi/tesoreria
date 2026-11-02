@@ -54,7 +54,7 @@ async def notify(db, users: list[dict], *, kind: str, title: str, body: str, lin
         p = prefs_of(u)
         url = settings.frontend_url + link
         if p["email_alerts"]:
-            await send_email(u["email"], f"Tesoreria · {title}", f"{body}\n\n{url}",
+            await send_email(u["email"], f"Nureal-Amministrazione · {title}", f"{body}\n\n{url}",
                              html_page(title, [body], link=url), meta={"kind": kind})
         if p["whatsapp_alerts"] and p["whatsapp_number"]:
             await send_whatsapp(p["whatsapp_number"], f"{title}: {body}", meta={"kind": kind})
@@ -181,7 +181,7 @@ async def build_digest(db, user: dict) -> tuple[str, str, str] | None:
         sign = "+" if d["kind"] == "incasso" else "-"
         rows.append((f"{parse_date(d['due_date']).strftime('%d/%m')} · {names.get(d['company_id'], '')} · {d['description']}",
                      f"{sign} {_eur(d['amount_cents'])}"))
-    subject = f"Tesoreria · riepilogo della settimana {t.strftime('%d/%m/%Y')}"
+    subject = f"Nureal-Amministrazione · riepilogo della settimana {t.strftime('%d/%m/%Y')}"
     intro = f"Ciao {user.get('name') or ''}, ecco la situazione delle tue aziende.".replace("Ciao ,", "Ciao,")
     text = intro + "\n\n" + "\n".join(f"{a}: {b}" for a, b in rows) + f"\n\n{settings.frontend_url}"
     return subject, text, html_page("Riepilogo settimanale", [intro], rows, settings.frontend_url)
@@ -216,7 +216,7 @@ async def send_monthly_reports(db) -> int:
         if not ids:
             continue
         pdf = await build_monthly_pdf(db, ids, month, title="Gruppo" if len(ids) > 1 else None)
-        await send_email(u["email"], f"Tesoreria · report di {prev.strftime('%m/%Y')}",
+        await send_email(u["email"], f"Nureal-Amministrazione · report di {prev.strftime('%m/%Y')}",
                          "In allegato il report mensile.", attachments=[(f"report_{month}.pdf", pdf, "application/pdf")],
                          meta={"kind": "report_mensile"})
         count += 1

@@ -147,7 +147,7 @@ def statements_pdf(company: dict, data: dict) -> bytes:
         f"Differenza tra valore e costi della produzione: <b>{eur(s['differenza'])}</b> · Risultato prima delle imposte: "
         f"<b>{eur(s['risultato_ante_imposte'])}</b>", S["p"]),
         Spacer(1, 6 * mm),
-        Paragraph("Prospetto gestionale generato da Tesoreria di gruppo dalle registrazioni in partita doppia. Non sostituisce il "
+        Paragraph("Prospetto gestionale generato da Nureal-Amministrazione dalle registrazioni in partita doppia. Non sostituisce il "
                   "bilancio d'esercizio redatto e depositato a norma di legge.", S["small"])]
     buf = io.BytesIO()
     SimpleDocTemplate(buf, pagesize=A4, leftMargin=16 * mm, rightMargin=16 * mm, topMargin=14 * mm, bottomMargin=14 * mm,

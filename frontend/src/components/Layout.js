@@ -187,7 +187,7 @@ export default function Layout() {
     <nav aria-label="Menu principale" className="flex h-full flex-col gap-5 overflow-y-auto bg-side px-4 py-6 text-[#E8EAEE]">
       <div className="flex items-start justify-between gap-2 px-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-lg font-bold tracking-tight text-white">Tesoreria di gruppo</span>
+          <span className="text-lg font-bold tracking-tight text-white">Nureal-Amministrazione</span>
           <span className="text-xs text-[#A9AFBC]">{roleText}</span>
         </div>
         {bell}
@@ -239,7 +239,7 @@ export default function Layout() {
       <aside className="hidden lg:sticky lg:top-0 lg:block lg:h-screen lg:w-[256px] lg:flex-none">{sidebar}</aside>
 
       <div className="flex items-center justify-between gap-2 bg-side px-4 py-2 lg:hidden">
-        <span className="font-bold text-white">Tesoreria di gruppo</span>
+        <span className="font-bold text-white">Nureal-Amministrazione</span>
         <div className="flex items-center gap-1">
           {bell}
           <button type="button" onClick={() => setOpen(true)} aria-label="Apri menu" className="flex h-11 w-11 items-center justify-center rounded-lg text-white hover:bg-side-hover">

@@ -174,7 +174,7 @@ async def build_monthly_pdf(db, company_ids: list[str], month: str, title: str |
     story += [Paragraph("Da sistemare", S["h2"]),
               Paragraph(f"Movimenti da riconciliare: <b>{to_rec}</b> · Chiarimenti aperti: <b>{questions}</b>", S["p"]),
               Spacer(1, 8 * mm),
-              Paragraph("Report generato da Tesoreria di gruppo. Le stime (IVA, previsione) si basano sui dati registrati "
+              Paragraph("Report generato da Nureal-Amministrazione. Le stime (IVA, previsione) si basano sui dati registrati "
                         "nel programma e vanno verificate con il commercialista.", S["small"])]
 
     buf = io.BytesIO()
@@ -188,6 +188,6 @@ async def build_monthly_pdf(db, company_ids: list[str], month: str, title: str |
         canvas.restoreState()
 
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm,
-                            title=f"Report mensile {heading} {month}", author="Tesoreria di gruppo")
+                            title=f"Report mensile {heading} {month}", author="Nureal-Amministrazione")
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return buf.getvalue()

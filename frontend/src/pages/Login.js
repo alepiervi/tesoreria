@@ -47,7 +47,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
       <div className="flex w-full max-w-[420px] flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <span className="text-2xl font-bold tracking-tight">Tesoreria di gruppo</span>
+          <span className="text-2xl font-bold tracking-tight">Nureal-Amministrazione</span>
           <span className="text-sm text-muted">Accedi per vedere conti, fatture e scadenze delle tue aziende.</span>
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6">

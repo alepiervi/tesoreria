@@ -8,7 +8,7 @@ import { useAuth } from "../lib/auth";
 import { DEADLINE_STATUS, KIND_LABELS, eur, fmtDate } from "../lib/format";
 
 export default function GroupDashboard() {
-  const { setSelectedId, companies } = useAuth();
+  const { setSelectedId, companies, user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -21,6 +21,10 @@ export default function GroupDashboard() {
   if (error) return <ErrorBox>{error}</ErrorBox>;
   if (!data) return <Loading />;
   if (!companies.length) {
+    if (user?.is_owner) {
+      return <Empty title="Benvenuto in Nureal-Amministrazione" text="Per iniziare crea la tua prima azienda con la partita IVA corretta."
+        action={<Button data-testid="create-first-company-btn" onClick={() => navigate("/impostazioni")}>+ Crea la prima azienda</Button>} />;
+    }
     return <Empty title="Nessuna azienda" text="Non hai ancora accesso a nessuna azienda. Chiedi al titolare di invitarti." />;
   }
 
