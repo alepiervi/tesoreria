@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, getToken, setToken } from "./api";
-import { IDLE_MINUTES, idleExpired, markActivity, useIdleLogout } from "./idle";
+import { IDLE_MINUTES, idleExpired, markActivity, markIdleLogout, useIdleLogout } from "./idle";
 
 const AuthContext = createContext(null);
 const SELECTED_KEY = "tesoreria_company";
+let idleRedirecting = false;
 
 function readSelected() {
   try {
@@ -21,7 +22,16 @@ export function AuthProvider({ children }) {
   const [counts, setCounts] = useState({ to_reconcile: 0, open_questions: 0 });
 
   const loadSession = useCallback(async () => {
-    if (getToken() && idleExpired()) setToken(null);
+    if (idleRedirecting) return;
+    if (getToken() && idleExpired()) {
+      markIdleLogout();
+      setToken(null);
+      if (!window.location.pathname.startsWith("/login")) {
+        idleRedirecting = true;
+        window.location.assign("/login?scaduta=1");
+        return;
+      }
+    }
     if (!getToken()) {
       setUser(null);
       setCompanies([]);
@@ -72,9 +82,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const idleTimeout = useCallback(() => {
-    logout();
+    if (idleRedirecting) return;
+    idleRedirecting = true;
+    markIdleLogout();
+    setToken(null);
     window.location.assign("/login?scaduta=1");
-  }, [logout]);
+  }, []);
   const idleSecondsLeft = useIdleLogout(Boolean(user), idleTimeout);
 
   const setSelectedId = useCallback((id) => {

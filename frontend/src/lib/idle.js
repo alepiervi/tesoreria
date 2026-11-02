@@ -4,11 +4,37 @@ export const IDLE_MINUTES = 15;
 const IDLE_MS = IDLE_MINUTES * 60 * 1000;
 const WARN_MS = 60 * 1000;
 const KEY = "nureal_last_activity";
+const FLAG = "nureal_idle_logout";
 const EVENTS = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"];
 
 export function markActivity() {
   try {
     localStorage.setItem(KEY, String(Date.now()));
+  } catch {
+    /* ignora */
+  }
+}
+
+export function markIdleLogout() {
+  try {
+    localStorage.setItem(FLAG, "1");
+  } catch {
+    /* ignora */
+  }
+}
+
+// true dopo una disconnessione per inattività (si cancella con clearIdleLogout)
+export function wasIdleLogout() {
+  try {
+    return localStorage.getItem(FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function clearIdleLogout() {
+  try {
+    localStorage.removeItem(FLAG);
   } catch {
     /* ignora */
   }

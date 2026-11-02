@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only test of the 15-minute auto-logout for inactivity, run in Playwright on the public URL at 1920x1080. All 6 requested scenarios PASS. (1) Owner login lands on '/' and nureal_last_activity is set (2.8s old). There is no warning and no logout while active. (2) With the timestamp set to 14:30 ago, idle-warning appears within 2s with idle-seconds=28 and counts down (25 after 3s). A mouse move dismisses it, and so does a key press (Shift). (3) With the timestamp set to 16 min ago, the user goes to /login?scaduta=1 within 3.5s. idle-logout-notice reads 'Sei stato disconnesso dopo 15 minuti di inattività. Accedi di nuovo per continuare.' and tesoreria_token is null. (4) With the timestamp at 20 min ago, reload lands on /login and the token is removed. A deep link to /impostazioni also goes to /login. (5) Logging in again right after an idle logout works, and the user is still on '/' after 4s. (6) Two tabs: with the timestamp at 14:30 ago, tab B shows the warning. A mouse move in tab A hides it in tab B. A 16-min-old timestamp then logs out both tabs, each landing on /login?scaduta=1. No pageerrors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login after reopen (scenario 4)", "issues": ["If the session expired while the app was closed, loadSession clears the token silently. The user lands on /login without ?scaduta=1, so the 'disconnesso per inattività' notice does not show. This is optional UX polish."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The logout is client-side only. The JWT stays valid on the server until it expires, so a copied token still works after the idle logout. Optionally, make the server access-token lifetime shorter or sliding, or add server-side revocation.",
+    "auth.js loadSession: when idleExpired() clears the token, consider redirecting to /login?scaduta=1 so the reason is shown (same as the live timeout).",
+    "idle.js: a fresh mount (page reload) calls markActivity(), so a reload counts as activity. This is acceptable.",
+    "In background tabs, browsers throttle setInterval to about 1 per minute. The visibilitychange check covers the moment the tab comes back into focus, so this is fine."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
+  "seed_data_creation": "None. Owner password and 2FA unchanged.",
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!!",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To simulate idle, set localStorage nureal_last_activity with page.evaluate and do not move the mouse. Activity writes are throttled to every 5s, so wait more than 5.5s between a dismissal and the next simulation. Login: use input nth(0)/nth(1) and the 'Accedi' button."
+}
