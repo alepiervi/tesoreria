@@ -1,6 +1,6 @@
 /* Service worker minimo: rende il programma installabile sul telefono e mostra una pagina
    di cortesia se manca la connessione. I dati finanziari NON vengono salvati sul dispositivo. */
-const CACHE = "tesoreria-shell-v1";
+const CACHE = "nureal-shell-v2";
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (event) => {

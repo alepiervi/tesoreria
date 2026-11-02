@@ -76,14 +76,16 @@ export default function Layout() {
   }, [loadUnread]);
   useEffect(() => { loadUnread(); }, [location.pathname, loadUnread]);
 
-  const multi = companies.length > 1;
+  const ownerAll = Boolean(user?.is_owner);
+  const allow = (perm) => ownerAll || anyCan(perm);
+  const multi = companies.length > 1 || ownerAll;
   const sections = [
     {
       title: "Panoramica",
       items: [
         { to: "/", label: "Vista di gruppo", icon: "home", end: true },
         { to: selected ? `/aziende/${selected.id}` : "/", label: "Azienda", icon: "bank", match: "/aziende" },
-        anyCan("use_assistant") && { to: "/assistente", label: "Assistente", icon: "spark" },
+        allow("use_assistant") && { to: "/assistente", label: "Assistente", icon: "spark" },
       ],
     },
     {
@@ -93,12 +95,12 @@ export default function Layout() {
         { to: "/fatture", label: "Fatture", icon: "doc" },
         { to: "/riconciliazione", label: "Riconciliazione", icon: "link", badge: counts.to_reconcile },
         { to: "/scadenze", label: "Scadenzario", icon: "calendar" },
-        anyCan("view_accounting") && { to: "/paghe", label: "Paghe", icon: "wallet" },
+        allow("view_accounting") && { to: "/paghe", label: "Paghe", icon: "wallet" },
         { to: "/scontrini", label: "Scontrini", icon: "receipt" },
-        anyCan("view_accounting") && { to: "/chiusura-mese", label: "Chiusura del mese", icon: "check" },
+        allow("view_accounting") && { to: "/chiusura-mese", label: "Chiusura del mese", icon: "check" },
       ],
     },
-    anyCan("view_commissions") && {
+    allow("view_commissions") && {
       title: "Provvigioni",
       items: [
         { to: "/provvigioni", label: "Attivazioni", icon: "antenna", end: true },
@@ -112,28 +114,28 @@ export default function Layout() {
         { to: "/crediti", label: "Crediti e debiti", icon: "hand" },
         { to: "/iva", label: "IVA stimata", icon: "percent" },
         { to: "/budget", label: "Budget", icon: "target" },
-        anyCan("view_accounting") && { to: "/commesse", label: "Commesse", icon: "briefcase" },
+        allow("view_accounting") && { to: "/commesse", label: "Commesse", icon: "briefcase" },
         { to: "/finanziamenti", label: "Finanziamenti", icon: "loan" },
       ],
     },
     {
       title: "Controllo e strategia",
       items: [
-        anyCan("view_accounting") && { to: "/salute", label: "Salute dell'azienda", icon: "pulse" },
-        anyCan("view_accounting") && { to: "/piano", label: "Piano a 3 anni", icon: "plan" },
+        allow("view_accounting") && { to: "/salute", label: "Salute dell'azienda", icon: "pulse" },
+        allow("view_accounting") && { to: "/piano", label: "Piano a 3 anni", icon: "plan" },
         { to: "/centrale-rischi", label: "Centrale Rischi", icon: "shieldcheck" },
       ],
     },
     multi && {
       title: "Gruppo",
       items: [
-        anyCan("view_accounting") && { to: "/gruppo/consolidato", label: "Bilancio consolidato", icon: "layers" },
+        allow("view_accounting") && { to: "/gruppo/consolidato", label: "Bilancio consolidato", icon: "layers" },
         { to: "/gruppo/liquidita", label: "Liquidità di gruppo", icon: "coins" },
-        anyCan("view_accounting") && { to: "/gruppo/confronto", label: "Confronto aziende", icon: "columns" },
+        allow("view_accounting") && { to: "/gruppo/confronto", label: "Confronto aziende", icon: "columns" },
         { to: "/intercompany", label: "Tra le aziende", icon: "swap" },
       ],
     },
-    anyCan("view_accounting") && {
+    allow("view_accounting") && {
       title: "Contabilità",
       items: [
         { to: "/contabilita/prima-nota", label: "Prima nota", icon: "book" },
@@ -150,7 +152,7 @@ export default function Layout() {
       items: [
         { to: "/chiarimenti", label: "Chiarimenti", icon: "chat", badge: counts.open_questions },
         { to: "/documenti", label: "Documenti", icon: "folder" },
-        anyCan("export") && { to: "/export", label: "Export e report", icon: "download" },
+        allow("export") && { to: "/export", label: "Export e report", icon: "download" },
       ],
     },
     {
@@ -160,8 +162,8 @@ export default function Layout() {
     {
       title: "Amministrazione",
       items: [
-        anyCan("manage_members") && { to: "/utenti", label: "Utenti e accessi", icon: "users" },
-        anyCan("view_audit") && { to: "/registro", label: "Registro attività", icon: "shield" },
+        allow("manage_members") && { to: "/utenti", label: "Utenti e accessi", icon: "users" },
+        allow("view_audit") && { to: "/registro", label: "Registro attività", icon: "shield" },
         { to: "/impostazioni", label: "Impostazioni", icon: "gear" },
       ],
     },
@@ -189,7 +191,10 @@ export default function Layout() {
     <nav aria-label="Menu principale" className="flex h-full flex-col gap-5 overflow-y-auto bg-side px-4 py-6 text-[#E8EAEE]">
       <div className="flex items-start justify-between gap-2 px-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-lg font-bold tracking-tight text-white">Nureal-Amministrazione</span>
+          <span className="flex items-center gap-2 text-lg font-bold tracking-tight text-white">
+            <img src="/logo.png" alt="" data-testid="sidebar-logo" className="h-8 w-8 flex-none rounded-lg" />
+            Nureal-Amministrazione
+          </span>
           <span className="text-xs text-[#A9AFBC]">{roleText}</span>
         </div>
         {bell}
@@ -241,7 +246,10 @@ export default function Layout() {
       <aside className="hidden lg:sticky lg:top-0 lg:block lg:h-screen lg:w-[256px] lg:flex-none">{sidebar}</aside>
 
       <div className="flex items-center justify-between gap-2 bg-side px-4 py-2 lg:hidden">
-        <span className="font-bold text-white">Nureal-Amministrazione</span>
+        <span className="flex items-center gap-2 font-bold text-white">
+          <img src="/logo.png" alt="" className="h-7 w-7 rounded-md" />
+          Nureal-Amministrazione
+        </span>
         <div className="flex items-center gap-1">
           {bell}
           <button type="button" onClick={() => setOpen(true)} aria-label="Apri menu" className="flex h-11 w-11 items-center justify-center rounded-lg text-white hover:bg-side-hover">

@@ -44,7 +44,10 @@ export default function AcceptInvite() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
       <div className="flex w-full max-w-[440px] flex-col gap-6">
-        <span className="text-2xl font-bold tracking-tight">Nureal-Amministrazione</span>
+        <span className="flex items-center gap-3 text-2xl font-bold tracking-tight">
+          <img src="/logo.png" alt="Logo Nureal" data-testid="app-logo" className="h-11 w-11 rounded-xl" />
+          Nureal-Amministrazione
+        </span>
         {loadError ? (
           <ErrorBox>{loadError}</ErrorBox>
         ) : !info ? (
