@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 10: all 3 fixes from iteration 9 verified, plus the regression checks. Backend: 9/9 tests pass in /tmp/test_iter10.py, run against the public URL. One first-run failure was a mistake in my test: the random path contained digits, which clean_path masks to ':id'. The DB showed that message was stored correctly. Frontend: tested with Playwright on the developer menu, the OwnerInvite link box, the owner invite accept flow in the UI, and the developer redirect.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified": [
+    "POST /api/invites to the developer email returns 400 'L'account sviluppatore non può avere accesso...'. This also works for the mixed-case, padded version '  Alessandro.Piervincenzi@GMAIL.com '. Invites to other emails still return 200",
+    "An old normal invite for the developer, inserted directly into the DB, returns 400 on accept with either the correct or a wrong password. The invite stays unaccepted and the developer has 0 memberships",
+    "client-errors: the 'reading amount' message is stored unchanged. \"Cannot read property of 'Rossi Srl'\" is stored as 'TypeError: (messaggio nascosto: potrebbe contenere dati)'. 'Fattura Rossi non trovata' is fully hidden. 'Rossi' does not appear anywhere in the stored record",
+    "OwnerInvite: with invites A and B created, cancelling A keeps the link box. Cancelling B, the shown one, hides it. The email, name and link inputs have class 'input' with a visible 1px border",
+    "Developer menu shows only Stato del sistema, Errori tecnici, Invito titolare, Guida, Impostazioni and Notifiche. Going to /fatture redirects to /sviluppatore",
+    "Developer gets 404 on /companies/{id} and /dashboard, and GET /companies returns []. The owner gets 403/404 on /developer/status",
+    "Accepting the owner invite in the UI (titolare.ui@example.com) redirects to / with the full owner menu (about 40 items)",
+    "Offline tests/test_developer.py: 5 passed"
+  ],
+  "test_report_links": ["/tmp/test_iter10.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Low: record_client_error keeps browser stack lines after clean_text. These are usually bundle file:line, but a custom thrown Error's stack may echo the message on line 0. That line is skipped ([1:9]), so it is fine",
+    "Low: the Login and AcceptInvite inputs have no data-testid. Tests used #email, #pw and #name"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created owners nuovo.titolare@example.com and titolare.ui@example.com (both Titolare2026!), company TEST_Azienda, and browser errors under /test-iter10/*. The developer password and 2FA were left unchanged (totp off). The main agent will wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Test script is in /tmp/test_iter10.py, not in /app/backend/tests, as requested. clean_path masks runs of 3 or more digits to ':id', so test paths must not contain digits."
+}

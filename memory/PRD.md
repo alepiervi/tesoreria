@@ -12,7 +12,7 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 - 102 backend tests pass; smoke test of all GET endpoints for 3 roles (backend/tests/test_smoke_all_gets.py)
 - Fix: Members page no longer calls /api/members for users who can't manage members
 
-- Real-data mode: demo data wiped, SEED_DEMO=false, demo login hidden; owner auto-created on empty DB from OWNER_EMAIL/OWNER_PASSWORD/OWNER_NAME (app/seed.ensure_owner)
+- Real-data mode: demo data wiped, SEED_DEMO=false, demo login hidden; owner now created via developer invite
 - Renamed to Nureal-Amministrazione (UI, title, manifest, PDF, email subjects, 2FA issuer); guide texts/videos untouched
 - First-use UX: owner welcome + '+ Crea la prima azienda' opens New company modal (/impostazioni?nuova=1); singular/plural fixes; empty chart axis
 - Full first-use flow tested (company, manual account, CSV/CAMT/PDF import, invoice, deadline, reconciliation, invite)
@@ -20,6 +20,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 - 2026-06: owner always sees every menu section (Layout allow()); 0-company owner gets "Crea prima la tua azienda" on gated pages; new Nureal logo (logo.png, favicon.png/.ico, icons, apple-touch) in login, sidebar, mobile header
 
 - 2026-06: auto-logout after 15 min inactivity (frontend/src/lib/idle.js): shared across tabs, warning 60s before, checks on reopen, login notice
+
+- 2026-06: Developer role (is_developer): former owner converted at startup (DEVELOPER_* env), zero company access (get_memberships/require block), menu limited to Stato del sistema, Errori tecnici (sanitized server+browser errors, collection system_errors), Invito titolare (owner invite -> is_owner + titolare on all companies)
 
 ## Mocked (demo providers)
 Open banking, SDI, payments, email, WhatsApp, AI assistant
