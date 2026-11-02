@@ -1,0 +1,367 @@
+{
+  "sections": [
+    {"id": "inizio", "title": "Per iniziare"},
+    {"id": "banche", "title": "Conti, carte e movimenti"},
+    {"id": "fatture", "title": "Fatture, incassi e pagamenti"},
+    {"id": "pianificazione", "title": "Previsioni e pianificazione"},
+    {"id": "gruppo", "title": "Il gruppo"},
+    {"id": "provvigioni", "title": "Provvigioni"},
+    {"id": "contabilita", "title": "Contabilità"},
+    {"id": "controllo", "title": "Controllo e strategia"},
+    {"id": "commercialista", "title": "Con il commercialista"},
+    {"id": "amministrazione", "title": "Utenti, sicurezza e impostazioni"}
+  ],
+  "guides": [
+    {
+      "id": "primi-passi",
+      "section": "inizio",
+      "title": "Primi passi: accesso, menu e aziende",
+      "summary": "Come entrare, muoversi nel menu e passare da un'azienda all'altra.",
+      "pages": ["/"],
+      "steps": [
+        {"title": "Accedi", "text": "Apri il programma e inserisci email e password. Se hai attivato la verifica in due passaggi, il programma ti chiede anche il codice dell'app sul telefono. Dopo 5 tentativi sbagliati l'accesso si blocca per qualche minuto.", "do": [{"logout": true}, {"goto": "/login"}], "highlight": "form"},
+        {"title": "La vista di gruppo", "text": "La prima pagina mostra tutte le aziende che puoi vedere: liquidità, entrate e uscite del mese, scadenze dei prossimi giorni e previsione di cassa. I giroconti e i movimenti tra le aziende sono esclusi dai totali.", "do": [{"login": "titolare"}, {"goto": "/"}]},
+        {"title": "Il menu", "text": "A sinistra trovi tutte le sezioni, divise per argomento. Vedi solo quelle permesse dal tuo ruolo: per esempio il commercialista non vede i pagamenti da autorizzare. I pallini arancioni indicano cose da fare, come i movimenti da riconciliare.", "highlight": "nav[aria-label='Menu principale']"},
+        {"title": "Scegli l'azienda", "text": "Nelle pagine di una sola azienda, il selettore in alto a destra cambia l'azienda. La scelta resta memorizzata quando passi da una pagina all'altra.", "do": [{"goto": "/movimenti"}], "highlight": "#company-picker"},
+        {"title": "Notifiche e guida", "text": "La campanella mostra gli avvisi (pagamenti in scadenza, crediti scaduti, liquidità in calo…). Il pulsante «Guida» in alto a destra di ogni pagina apre la spiegazione di quella pagina.", "highlight": "a[href='/notifiche']"}
+      ]
+    },
+    {
+      "id": "ruoli",
+      "section": "inizio",
+      "title": "Ruoli: chi può fare cosa",
+      "summary": "Titolare, amministrazione, commercialista e sola lettura, assegnati azienda per azienda.",
+      "pages": ["/utenti"],
+      "steps": [
+        {"title": "I quattro ruoli", "text": "Titolare: può tutto, compresa l'autorizzazione dei pagamenti. Amministrazione: lavora ogni giorno (estratti conto, fatture, riconciliazione, paghe, provvigioni) e prepara i pagamenti. Commercialista: vede tutto, gestisce la contabilità e chiude mesi ed esercizi, ma non tocca banche e pagamenti. Sola lettura: vede senza modificare.", "do": [{"goto": "/utenti"}]},
+        {"title": "Azienda per azienda", "text": "Ogni persona può avere ruoli diversi in aziende diverse: per esempio commercialista di Alfa e Beta ma nessun accesso a Gamma. Chi non ha accesso a un'azienda non sa nemmeno che esiste.", "highlight": "text=Chi ha accesso"},
+        {"title": "Il registro attività", "text": "Ogni operazione importante resta registrata: accessi, pagamenti, export, modifiche ai permessi, registrazioni contabili. Lo vede solo il titolare, nel menu Amministrazione.", "do": [{"goto": "/registro"}]}
+      ]
+    },
+    {
+      "id": "conti-manuali",
+      "section": "banche",
+      "title": "Conti correnti ed estratti conto (anche PDF)",
+      "summary": "Aggiungere un conto senza collegamento automatico e caricare l'estratto conto.",
+      "pages": ["/aziende"],
+      "video": true,
+      "steps": [
+        {"title": "Apri la pagina dell'azienda", "text": "Nel menu scegli «Azienda». Nel riquadro «Conti» vedi tutti i conti e le carte con il saldo e la data dell'ultimo aggiornamento.", "do": [{"company_page": "Azienda Gamma Srl"}], "highlight": "section:has(h2:text-is('Conti'))"},
+        {"title": "Aggiungi il conto", "text": "Premi «+ Conto o carta», scegli «Conto corrente» e scrivi banca, nome del conto e IBAN. L'IBAN serve a controllare che l'estratto caricato sia quello giusto. Il saldo iniziale è facoltativo.", "do": [{"click": "role=button[name='+ Conto o carta']"}, {"fill": ["#ma-bank", "Banca Esempio"]}], "highlight": "role=dialog"},
+        {"title": "Carica l'estratto conto", "text": "Premi «Importa estratto conto» e scegli il file. Va bene il PDF della banca, ma se l'home banking lo permette scarica la «Lista movimenti» in Excel o CSV, che è ancora più precisa. Per i conti aziendali vanno bene anche CAMT.053 e CBI.", "do": [{"key": "Escape"}, {"click": "role=button[name='Importa estratto conto'] >> nth=0"}, {"upload": ["role=dialog >> role=button[name='Scegli il file']", "estratto_conto_esempio.pdf"]}], "highlight": "role=dialog"},
+        {"title": "Controlla l'anteprima", "text": "Prima di importare vedi i movimenti letti, le entrate, le uscite e il saldo finale. Se entrate e uscite risultano invertite spunta «Inverti i segni». I movimenti già presenti sono indicati e non vengono duplicati, anche se carichi periodi che si sovrappongono.", "highlight": "role=dialog >> table"},
+        {"title": "Importa", "text": "Premi «Importa». I movimenti finiscono in «Movimenti» con la categoria proposta e in «Riconciliazione» per essere abbinati alle fatture. Ricordati di caricare l'estratto ogni settimana: se un conto non è aggiornato da più di 7 giorni il programma te lo ricorda.", "highlight": "role=dialog >> role=button[name=/^Importa \\d+ movimenti/]"}
+      ]
+    },
+    {
+      "id": "carte",
+      "section": "banche",
+      "title": "Carte di credito",
+      "summary": "Aggiungere una carta, caricare l'estratto mensile e non contare le spese due volte.",
+      "pages": ["/aziende"],
+      "video": true,
+      "steps": [
+        {"title": "Aggiungi la carta", "text": "Nella pagina dell'azienda premi «+ Conto o carta» e scegli «Carta di credito». Indica chi la emette, le ultime 4 cifre, il conto su cui viene addebitata e il giorno di addebito.", "do": [{"company_page": "Azienda Gamma Srl"}, {"click": "role=button[name='+ Conto o carta']"}, {"click": "role=radio[name='Carta di credito']"}, {"fill": ["#ma-bank", "Nexi"]}, {"fill": ["#ma-last4", "4821"]}, {"fill": ["#ma-day", "15"]}], "highlight": "role=dialog"},
+        {"title": "Carica l'estratto della carta", "text": "Ogni mese carica l'estratto della carta, anche in PDF. Gli importi senza segno sono spese; rimborsi e pagamento del saldo diventano entrate della carta. Il saldo letto dal file è il debito che verrà addebitato sul conto.", "do": [{"click": "role=dialog >> role=button[name='Aggiungi']"}, {"wait": 1200}, {"upload": ["role=dialog >> role=button[name='Scegli il file']", "estratto_carta_esempio.pdf"]}], "highlight": "role=dialog"},
+        {"title": "Il saldo della carta", "text": "La carta compare tra i conti con il debito da addebitare in arancione. La liquidità dell'azienda lo tiene già in conto, così la previsione di cassa è prudente.", "do": [{"click": "role=dialog >> role=button[name=/^Importa \\d+ movimenti/]"}, {"wait": 1500}], "highlight": "li:has-text('Carta di credito') >> nth=0"},
+        {"title": "L'addebito sul conto è un giroconto", "text": "Quando la banca addebita il saldo della carta sul conto, quel movimento e il «pagamento saldo» sull'estratto carta sono un giroconto: confermali in «Tra le aziende». Così le spese contano una volta sola, quando le fai con la carta.", "do": [{"goto": "/intercompany"}]}
+      ]
+    },
+    {
+      "id": "collegamento-automatico",
+      "section": "banche",
+      "title": "Collegare la banca in automatico",
+      "summary": "Open banking: i movimenti arrivano da soli; rinnovo del consenso ogni 180 giorni.",
+      "pages": ["/aziende"],
+      "steps": [
+        {"title": "Collega in automatico", "text": "Nella pagina dell'azienda premi «+ Collega in automatico» e scegli la banca: verrai portato sul sito della banca per dare il consenso. Nella versione di prova la banca è simulata. Il collegamento reale richiede il contratto con un fornitore di open banking (vedi README).", "do": [{"company_page": "Azienda Alfa Srl"}, {"click": "role=button[name='+ Collega in automatico']"}], "highlight": "role=dialog"},
+        {"title": "Da manuale ad automatico", "text": "Un conto manuale si può rendere automatico con «Rendi automatico»: i movimenti già importati restano e da quel giorno i nuovi arrivano da soli.", "do": [{"key": "Escape"}], "highlight": "section:has(h2:text-is('Conti'))"},
+        {"title": "Rinnova il consenso", "text": "Per legge il consenso dura 180 giorni. Un mese prima della scadenza il programma avvisa e compare «Rinnova consenso».", "highlight": "text=/Consenso valido/ >> nth=0"}
+      ]
+    },
+    {
+      "id": "movimenti",
+      "section": "banche",
+      "title": "Movimenti, categorie e regole",
+      "summary": "Cercare i movimenti, correggere la categoria e creare regole automatiche.",
+      "pages": ["/movimenti"],
+      "steps": [
+        {"title": "L'elenco dei movimenti", "text": "In «Movimenti» trovi tutti i movimenti di conti e carte, con categoria e stato (da riconciliare, riconciliato, senza fattura). Filtra per periodo, entrate o uscite, stato e testo.", "do": [{"goto": "/movimenti"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "Cerca", "text": "Scrivi una parola della descrizione, per esempio il nome di un fornitore: l'elenco si aggiorna mentre scrivi.", "do": [{"fill": ["#tx-q", "energia"]}], "highlight": "#tx-q"},
+        {"title": "Correggi la categoria", "text": "Cambia la categoria dal menu della riga. Il programma propone di creare una regola: i movimenti futuri con la stessa descrizione avranno da soli quella categoria. Le regole si gestiscono in Impostazioni.", "highlight": "select[aria-label='Categoria del movimento'] >> nth=0"}
+      ]
+    },
+    {
+      "id": "fatture",
+      "section": "fatture",
+      "title": "Fatture elettroniche",
+      "summary": "Importare XML e p7m, scaricare dallo SDI, inserire a mano, scadenze automatiche.",
+      "pages": ["/fatture"],
+      "video": true,
+      "steps": [
+        {"title": "Fatture attive e passive", "text": "In «Fatture» scegli se vedere le fatture dei fornitori (passive), dei clienti (attive) o tutte. Per ognuna vedi scadenza, totale, residuo da pagare o incassare e stato.", "do": [{"goto": "/fatture"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "Importa gli XML", "text": "Premi «Importa XML» e seleziona uno o più file .xml o .p7m scaricati dal cassetto fiscale o dal gestionale. Le fatture già presenti non vengono duplicate. «Scarica da SDI» prende le fatture ricevute dall'intermediario (quando sarà collegato).", "highlight": "role=button[name='Importa XML']"},
+        {"title": "Scadenze automatiche", "text": "Ogni fattura crea le sue scadenze di incasso o pagamento, che entrano nello Scadenzario e nella previsione di cassa. Ritenute d'acconto e split payment sono già calcolati nel residuo.", "highlight": "table >> nth=0"},
+        {"title": "Il conto della fattura", "text": "Con «Contabilità» scegli il conto di costo e il centro di costo o la commessa. Il programma lo ricorda per le prossime fatture dello stesso fornitore. Se è un bene da ammortizzare, segnalo come cespite.", "do": [{"click": "role=button[name='Contabilità'] >> nth=0"}], "highlight": "role=dialog"}
+      ]
+    },
+    {
+      "id": "riconciliazione",
+      "section": "fatture",
+      "title": "Riconciliazione: abbinare movimenti e fatture",
+      "summary": "Confermare le proposte, abbinare a mano, movimenti senza fattura.",
+      "pages": ["/riconciliazione"],
+      "video": true,
+      "steps": [
+        {"title": "I movimenti da sistemare", "text": "In «Riconciliazione» ci sono i movimenti non ancora abbinati. Per ognuno il programma propone la fattura o la scadenza più probabile, con il grado di affidabilità (importo, numero fattura, nome, data).", "do": [{"goto": "/riconciliazione"}]},
+        {"title": "Conferma le proposte", "text": "Se la proposta è giusta premi «Conferma». Con «Conferma le proposte sicure» confermi in un colpo solo tutte quelle quasi certe. Un bonifico può saldare più fatture insieme.", "highlight": "role=button[name='Conferma le proposte sicure']"},
+        {"title": "Abbina a mano", "text": "Se la proposta non c'è o è sbagliata, «Cerca a mano» apre l'elenco di fatture e scadenze aperte. L'assistente può suggerire l'abbinamento con «Chiedi all'assistente».", "do": [{"click": "role=button[name='Cerca a mano'] >> nth=0"}], "highlight": "role=dialog"},
+        {"title": "Movimenti senza fattura", "text": "Stipendi, F24, commissioni e simili si chiudono con «Senza fattura», indicando il motivo e la categoria. Un abbinamento sbagliato si annulla dalla pagina Movimenti.", "do": [{"key": "Escape"}], "highlight": "role=button[name='Senza fattura'] >> nth=0"}
+      ]
+    },
+    {
+      "id": "scadenzario-pagamenti",
+      "section": "fatture",
+      "title": "Scadenzario e pagamenti",
+      "summary": "Scadenze, spese ricorrenti, preparare e autorizzare i bonifici.",
+      "pages": ["/scadenze"],
+      "steps": [
+        {"title": "Lo scadenzario", "text": "Qui trovi incassi, pagamenti e F24 in ordine di data: quelli delle fatture si creano da soli, gli altri si aggiungono a mano. Le scadute sono evidenziate.", "do": [{"goto": "/scadenze"}]},
+        {"title": "Spese ricorrenti", "text": "Nella scheda «Spese e entrate ricorrenti» inserisci stipendi, affitti, abbonamenti: entrano ogni mese nella previsione di cassa.", "do": [{"click": "role=tab[name='Spese e entrate ricorrenti']"}]},
+        {"title": "Prepara il pagamento", "text": "L'amministrazione preme «Prepara pagamento» e sceglie il conto di addebito. Il titolare riceve la notifica.", "do": [{"login": "amministrazione"}, {"goto": "/scadenze"}], "highlight": "role=button[name='Prepara pagamento'] >> nth=0"},
+        {"title": "Autorizza", "text": "Il titolare preme «Autorizza pagamento» e conferma con il codice della verifica in due passaggi: il bonifico parte (quando il servizio di pagamento sarà collegato). Ogni autorizzazione resta nel registro attività.", "do": [{"login": "titolare"}, {"goto": "/scadenze"}], "highlight": "role=button[name='Autorizza pagamento'] >> nth=0"}
+      ]
+    },
+    {
+      "id": "crediti-solleciti",
+      "section": "fatture",
+      "title": "Crediti, debiti e solleciti con QR code",
+      "summary": "Anzianità dei crediti, ritardo medio dei clienti, solleciti via email.",
+      "pages": ["/crediti"],
+      "video": true,
+      "steps": [
+        {"title": "Chi ti deve soldi", "text": "In «Crediti e debiti» vedi per ogni cliente quanto deve e da quanto tempo (non scaduto, 1-30, 31-60, 61-90, oltre 90 giorni) e quanti giorni di ritardo fa di solito.", "do": [{"goto": "/crediti"}]},
+        {"title": "Apri il cliente", "text": "Clicca sul cliente per vedere le fatture aperte e i solleciti già inviati.", "do": [{"click": "text=Delta Spa >> nth=0"}]},
+        {"title": "Invia il sollecito", "text": "Premi «Sollecita»: scegli il tono (promemoria cortese, sollecito, ultimo avviso) e il testo si prepara da solo. Puoi allegare la fattura XML e l'avviso di pagamento con il QR code: il cliente lo inquadra con l'app della banca e trova il bonifico già compilato.", "do": [{"click": "role=button[name='Sollecita'] >> nth=0"}, {"wait": 1200}], "highlight": "role=dialog"}
+      ]
+    },
+    {
+      "id": "scontrini-assistente",
+      "section": "fatture",
+      "title": "Scontrini e assistente",
+      "summary": "Fotografare gli scontrini e fare domande sui conti in italiano.",
+      "pages": ["/scontrini", "/assistente"],
+      "steps": [
+        {"title": "Scontrini", "text": "Fotografa lo scontrino dal telefono con «Carica o fotografa»: viene abbinato al pagamento con carta corrispondente e archiviato per il commercialista.", "do": [{"goto": "/scontrini"}], "highlight": "role=button[name='Carica o fotografa']"},
+        {"title": "L'assistente", "text": "In «Assistente» fai domande come «Quanto ha speso Alfa di carburante quest'anno?», «Chi mi deve più soldi?», «Come sta Alfa?». Risponde solo con i dati delle aziende che puoi vedere e non modifica nulla.", "do": [{"goto": "/assistente"}, {"fill": ["#ask", "Come sta Alfa?"]}, {"click": "role=button[name='Chiedi']"}, {"wait": 2500}]}
+      ]
+    },
+    {
+      "id": "previsione",
+      "section": "pianificazione",
+      "title": "Previsione di cassa e scenari",
+      "summary": "Il saldo settimana per settimana e le simulazioni «cosa succede se».",
+      "pages": ["/"],
+      "steps": [
+        {"title": "La previsione", "text": "Nella vista di gruppo e nella pagina di ogni azienda la previsione mostra il saldo a fine settimana, sommando fatture da incassare e pagare, F24, IVA stimata, rate e spese ricorrenti.", "do": [{"goto": "/"}], "highlight": "section:has-text('Previsione di cassa') >> nth=0"},
+        {"title": "Prova uno scenario", "text": "«Prova uno scenario» simula cosa succede se un cliente paga in ritardo, se sposti o togli un pagamento, o se arriva una spesa imprevista. Il confronto con la previsione reale è immediato e non modifica nulla.", "do": [{"click": "role=button[name='Prova uno scenario'] >> nth=0"}], "highlight": "role=dialog"}
+      ]
+    },
+    {
+      "id": "iva-budget-finanziamenti",
+      "section": "pianificazione",
+      "title": "IVA stimata, budget e finanziamenti",
+      "summary": "Le stime per pianificare: IVA da versare, budget mensile, rate e fidi.",
+      "pages": ["/iva", "/budget", "/finanziamenti"],
+      "steps": [
+        {"title": "IVA stimata", "text": "Il programma calcola l'IVA da versare dalle fatture, mese per mese o trimestre per trimestre, e crea le scadenze F24 nella previsione. È una stima: l'importo definitivo lo conferma il commercialista.", "do": [{"goto": "/iva"}]},
+        {"title": "Budget", "text": "Imposta quanto prevedi di spendere e incassare per categoria, mese per mese, oppure fai proporre il budget dalla media degli ultimi 12 mesi. Il confronto con il reale è aggiornato ogni giorno e avvisa se una voce sfora.", "do": [{"goto": "/budget"}]},
+        {"title": "Finanziamenti e fidi", "text": "Inserisci mutui, finanziamenti e leasing: le rate entrano da sole nella previsione e la contabilità divide capitale e interessi. I fidi si sommano alla liquidità disponibile.", "do": [{"goto": "/finanziamenti"}]}
+      ]
+    },
+    {
+      "id": "paghe",
+      "section": "pianificazione",
+      "title": "Paghe",
+      "summary": "Dal riepilogo del consulente del lavoro alla registrazione, al netto da pagare e all'F24.",
+      "pages": ["/paghe"],
+      "steps": [
+        {"title": "L'elenco dei mesi", "text": "In «Paghe» trovi i mesi inseriti con lordo, contributi, IRPEF, netto, TFR e costo totale.", "do": [{"goto": "/paghe"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "Inserisci un mese", "text": "Premi «Inserisci un mese» e copia i totali dal riepilogo del consulente del lavoro, oppure «Leggi dal PDF» con l'assistente collegato a Claude. Il programma controlla che il lordo corrisponda a netto più trattenute.", "do": [{"click": "role=button[name='Inserisci un mese']"}], "highlight": "role=dialog"},
+        {"title": "Cosa crea", "text": "Registra gli stipendi in contabilità e crea due scadenze: il netto da pagare ai dipendenti e l'F24 del 16 del mese dopo. Quando riconcili i bonifici si chiudono i debiti verso dipendenti, INPS ed Erario.", "do": [{"key": "Escape"}]}
+      ]
+    },
+    {
+      "id": "gruppo",
+      "section": "gruppo",
+      "title": "Tra le aziende, liquidità di gruppo, consolidato e confronto",
+      "summary": "Le funzioni per gestire le aziende come un gruppo.",
+      "pages": ["/intercompany", "/gruppo/liquidita", "/gruppo/consolidato", "/gruppo/confronto"],
+      "video": true,
+      "steps": [
+        {"title": "Tra le aziende", "text": "Il programma riconosce bonifici tra le aziende del gruppo e giroconti tra conti della stessa azienda. Confermali: vengono esclusi dai totali, così il gruppo non conta due volte lo stesso denaro.", "do": [{"goto": "/intercompany"}]},
+        {"title": "Liquidità di gruppo", "text": "Per ogni azienda vedi il saldo di oggi e il punto più basso previsto. Imposta la riserva minima cliccando sull'importo: il programma propone quanto spostare da un'azienda all'altra e «Prepara il bonifico» crea il pagamento da autorizzare.", "do": [{"goto": "/gruppo/liquidita"}]},
+        {"title": "Bilancio consolidato", "text": "Somma i bilanci e toglie crediti, debiti, vendite e acquisti tra le aziende. Se due aziende registrano la stessa posizione in modo diverso, il programma lo segnala.", "do": [{"goto": "/gruppo/consolidato"}]},
+        {"title": "Confronto aziende", "text": "Gli stessi numeri e indici fianco a fianco: ricavi, margine, personale, liquidità, debiti. In blu il valore migliore di ogni riga.", "do": [{"goto": "/gruppo/confronto"}]}
+      ]
+    },
+    {
+      "id": "provvigioni-impostazioni",
+      "section": "provvigioni",
+      "title": "Provvigioni: partner, listino e venditori",
+      "summary": "Le impostazioni da fare una volta sola prima di importare le attivazioni.",
+      "pages": ["/provvigioni/impostazioni"],
+      "user": "amministrazione",
+      "steps": [
+        {"title": "Partner", "text": "In «Listino e venditori» → «Partner e stati» aggiungi un partner per ogni gestore (Fastweb, Vodafone, SKY…) con il periodo di storno: se il cliente cessa entro quei mesi, la provvigione si recupera.", "do": [{"goto": "/provvigioni/impostazioni"}, {"company": "Azienda Beta Srl"}, {"click": "role=tab[name='Partner e stati']"}]},
+        {"title": "Listino", "text": "Per ogni offerta indica il testo che compare nel file del partner («Riconosce»), quanto vi riconosce il partner e quanto date alla struttura e al dipendente. Le offerte che arrivano nei file ma non sono nel listino vengono segnalate in alto.", "do": [{"click": "role=tab[name='Listino']"}]},
+        {"title": "Strutture e dipendenti", "text": "Aggiungi le aziende collegate e i dipendenti con i loro codici venditore, quelli del vostro backoffice. I codici che compaiono nel backoffice ma non sono di nessuno vengono segnalati.", "do": [{"click": "role=tab[name='Strutture e dipendenti']"}]},
+        {"title": "Gare", "text": "Le gare danno un premio in base alle attivazioni nette del mese (attivate meno stornate): una o più soglie, con premio fisso e/o importo per ogni attivazione.", "do": [{"click": "role=tab[name='Gare']"}]}
+      ]
+    },
+    {
+      "id": "provvigioni-attivazioni",
+      "section": "provvigioni",
+      "title": "Provvigioni: import giornaliero e abbinamento",
+      "summary": "Caricare il backoffice e gli avanzamenti dei partner, assegnare le pratiche.",
+      "pages": ["/provvigioni"],
+      "user": "amministrazione",
+      "video": true,
+      "steps": [
+        {"title": "La pagina Attivazioni", "text": "In alto i numeri del mese: attivate, in lavorazione, da assegnare e margine (compensi dei partner meno provvigioni).", "do": [{"goto": "/provvigioni"}, {"company": "Azienda Beta Srl"}]},
+        {"title": "Carica il backoffice", "text": "Ogni giorno carica prima il file del backoffice: vendite con account, codice fiscale del cliente e codice del venditore.", "do": [{"upload": ["role=button[name='Carica backoffice']", "backoffice_vendite_esempio.csv"]}], "highlight": "role=dialog"},
+        {"title": "Carica gli avanzamenti", "text": "Scegli il partner e carica il suo file così come arriva, Excel o CSV. La prima volta, se le colonne non vengono riconosciute, le indichi a mano: poi il formato è ricordato. Le pratiche si aggiornano per codice pratica e si vede la storia degli stati.", "do": [{"click": "role=dialog >> role=button[name='Chiudi'] >> nth=0"}, {"select": ["#ip", "Vodafone"]}, {"upload": ["role=button[name='Carica avanzamenti']", "avanzamenti_vodafone_esempio.csv"]}], "highlight": "role=dialog"},
+        {"title": "Le pratiche da assegnare", "text": "Il programma abbina codice fiscale e account del cliente alla vendita del backoffice e, dal codice venditore, alla struttura o al dipendente. Quelle che restano senza abbinamento le assegni dal menu della riga.", "do": [{"click": "role=dialog >> role=button[name='Chiudi'] >> nth=0"}, {"select": ["#af-a", "Da assegnare"]}, {"wait": 1200}], "highlight": "select[id^='as-'] >> nth=0"}
+      ]
+    },
+    {
+      "id": "provvigioni-rendiconti",
+      "section": "provvigioni",
+      "title": "Provvigioni: rendiconti mensili",
+      "summary": "Approvare commissioni e bonus, storni recuperati, pagamenti e busta paga.",
+      "pages": ["/provvigioni/rendiconti"],
+      "user": "amministrazione",
+      "steps": [
+        {"title": "Il rendiconto del mese", "text": "Dopo la fine del mese, in «Rendiconti» trovi per ogni struttura e dipendente: attivazioni pagate a listino, premi delle gare, storni recuperati (clienti cessati entro il periodo di storno) ed eventuale saldo negativo del mese prima.", "do": [{"goto": "/provvigioni/rendiconti"}, {"company": "Azienda Beta Srl"}]},
+        {"title": "Il dettaglio", "text": "Clicca su un nome per vedere riga per riga cosa compone il totale.", "do": [{"click": "li button[aria-expanded] >> nth=0"}]},
+        {"title": "Approva", "text": "Seleziona e premi «Approva selezionati». Per le strutture si crea il pagamento nello Scadenzario, da autorizzare dopo la loro fattura. I bonus dei dipendenti si scaricano con «Bonus per il consulente» per la busta paga.", "highlight": "role=button[name=/Approva selezionati/]"}
+      ]
+    },
+    {
+      "id": "prima-nota",
+      "section": "contabilita",
+      "title": "Contabilità: prima nota e fatture da classificare",
+      "summary": "Le registrazioni automatiche, quelle manuali con i modelli, i conti delle fatture.",
+      "pages": ["/contabilita/prima-nota", "/contabilita/da-classificare"],
+      "user": "commercialista",
+      "video": true,
+      "steps": [
+        {"title": "Registrazioni automatiche", "text": "Fatture e movimenti riconciliati si registrano da soli in partita doppia e si aggiornano se cambia l'origine. In «Prima nota» le trovi in ordine, con il dettaglio dare/avere cliccando sulla riga.", "do": [{"goto": "/contabilita/prima-nota"}, {"click": "ul li button >> nth=0"}]},
+        {"title": "Nuova registrazione", "text": "Per stipendi, TFR, fatture da ricevere, imposte, spese in contanti o saldi iniziali usa «Nuova registrazione» e parti da un modello. «Pareggia» mette nella riga la differenza; la registrazione si salva solo se dare e avere quadrano.", "do": [{"click": "role=button[name='Nuova registrazione']"}, {"select": ["#tpl", "Spesa pagata in contanti"]}], "highlight": "role=dialog"},
+        {"title": "Fatture da classificare", "text": "Le fatture di acquisto ancora sul conto generico sono in «Da classificare», con il conto suggerito dalle scelte già fatte nel gruppo o dalle parole della fattura. Conferma una per una o tutte insieme: la scelta vale anche per le prossime fatture del fornitore.", "do": [{"key": "Escape"}, {"goto": "/contabilita/da-classificare"}]}
+      ]
+    },
+    {
+      "id": "bilancio",
+      "section": "contabilita",
+      "title": "Piano dei conti, registri IVA e bilancio",
+      "summary": "Mastrini, partitari, registri IVA, stato patrimoniale, conto economico e controlli.",
+      "pages": ["/contabilita/piano-conti", "/contabilita/registri-iva", "/contabilita/bilancio"],
+      "user": "commercialista",
+      "steps": [
+        {"title": "Piano dei conti", "text": "Conti a tre livelli con i saldi dell'anno. Cliccando un conto si apre il mastrino; per clienti, fornitori e società del gruppo c'è anche il partitario. Qui si collegano le categorie dei movimenti ai conti e si gestiscono i centri di costo.", "do": [{"goto": "/contabilita/piano-conti"}]},
+        {"title": "Registri IVA", "text": "Vendite e acquisti con protocollo, riepilogo per aliquota, split payment e ritenute. Si scaricano in Excel per mese o per anno.", "do": [{"goto": "/contabilita/registri-iva"}]},
+        {"title": "Bilancio", "text": "Stato patrimoniale e conto economico secondo lo schema civilistico, con l'anno precedente, il bilancio di verifica e il margine per centro di costo. Si scarica in PDF ed Excel.", "do": [{"goto": "/contabilita/bilancio"}]},
+        {"title": "Controlli", "text": "La scheda «Controlli» verifica che dare e avere quadrino, che le banche corrispondano ai movimenti, che non restino importi da attribuire e che non ci siano costi sul conto generico.", "do": [{"click": "role=tab[name=/Controlli/]"}]}
+      ]
+    },
+    {
+      "id": "fine-anno",
+      "section": "contabilita",
+      "title": "Cespiti, rettifiche e chiusura dell'esercizio",
+      "summary": "Ammortamenti, ratei e risconti, rimanenze, liquidazioni IVA, chiusura e riapertura.",
+      "pages": ["/contabilita/cespiti", "/contabilita/chiusure"],
+      "user": "commercialista",
+      "steps": [
+        {"title": "Cespiti", "text": "Registro dei beni strumentali con piano di ammortamento. «Registra ammortamenti» crea un'unica registrazione al 31/12 con le quote di tutti i beni. Una fattura di acquisto diventa cespite dal pulsante «Contabilità» in Fatture.", "do": [{"goto": "/contabilita/cespiti"}]},
+        {"title": "Fine esercizio passo passo", "text": "In «Chiusure e rettifiche» la lista dei passaggi: liquidazioni IVA, ammortamenti, ratei e risconti, rimanenze di magazzino, scritture da prima nota e controlli.", "do": [{"goto": "/contabilita/chiusure"}]},
+        {"title": "Chiudi l'esercizio", "text": "La chiusura rileva l'utile o la perdita, chiude e riapre i conti al 1° gennaio e blocca l'anno: fatture, movimenti e registrazioni di quell'anno non si possono più cambiare finché non si riapre. La fanno il titolare o il commercialista.", "highlight": "text=Chiusura dell'esercizio"}
+      ]
+    },
+    {
+      "id": "chiusura-mese",
+      "section": "contabilita",
+      "title": "Chiusura del mese",
+      "summary": "La lista dei controlli di fine mese e il blocco del mese chiuso.",
+      "pages": ["/chiusura-mese"],
+      "user": "commercialista",
+      "steps": [
+        {"title": "La lista dei controlli", "text": "Per il mese scelto il programma controlla da solo: estratti conto aggiornati, movimenti riconciliati, fatture classificate, paghe registrate, F24 pagati, liquidazione IVA, conto transitorio, domande aperte. Accanto a ogni voce c'è chi deve farla.", "do": [{"goto": "/chiusura-mese"}]},
+        {"title": "Spunte manuali", "text": "Due controlli si spuntano a mano: i documenti del mese caricati e la prima nota controllata dal commercialista.", "highlight": "input[type=checkbox] >> nth=0"},
+        {"title": "Chiudi il mese", "text": "Quando tutto è a posto, «Chiudi» blocca fatture, movimenti e registrazioni fino a fine mese. Dal giorno 10 il programma ricorda i mesi non ancora chiusi.", "highlight": "text=Blocco del mese"}
+      ]
+    },
+    {
+      "id": "salute",
+      "section": "controllo",
+      "title": "Salute dell'azienda e allerta crisi",
+      "summary": "Segnali del Codice della crisi, DSCR e indici di bilancio con semaforo.",
+      "pages": ["/salute"],
+      "video": true,
+      "steps": [
+        {"title": "Lo stato generale", "text": "In alto il giudizio complessivo: verde se non ci sono segnali di allerta, giallo se ci sono punti da tenere d'occhio, rosso se ci sono allarmi.", "do": [{"goto": "/salute"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "Segnali di allerta", "text": "Il programma controlla le soglie del Codice della crisi: stipendi non pagati, fornitori in forte ritardo, sconfinamenti in banca, IVA, INPS, INAIL e cartelle. «Cosa dice la legge» mostra la regola.", "do": [{"click": "role=button[name='Cosa dice la legge'] >> nth=0"}], "highlight": "section:has-text('Segnali di allerta') >> nth=0"},
+        {"title": "DSCR", "text": "Il DSCR misura se i soldi in arrivo bastano a pagare le rate dei finanziamenti nei prossimi 6 e 12 mesi. Sopra 1,2 va bene, sotto 1 no.", "highlight": "section:has-text('Sostenibilità dei debiti') >> nth=0"},
+        {"title": "Indici di bilancio", "text": "Undici indici con semaforo e spiegazione: liquidità, autonomia finanziaria, margine operativo, redditività, giorni di incasso e di pagamento. Le soglie sono indicative: la valutazione resta del commercialista.", "do": [{"scroll": "text=/Indici di bilancio/"}]}
+      ]
+    },
+    {
+      "id": "piano-cr",
+      "section": "controllo",
+      "title": "Piano a 3 anni e Centrale Rischi",
+      "summary": "Simulare i prossimi tre anni e tenere sotto controllo gli affidamenti.",
+      "pages": ["/piano", "/centrale-rischi"],
+      "steps": [
+        {"title": "Il piano", "text": "Parte dai numeri di oggi. Inserisci le tue ipotesi anno per anno (crescita, costi, investimenti, nuovi finanziamenti, giorni di incasso e pagamento) e premi «Ricalcola». Con «Salva ipotesi» le ritrovi la volta dopo; «Scarica Excel» per la banca.", "do": [{"goto": "/piano"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "I risultati", "text": "Conto economico, flussi di cassa, cassa e debiti a fine anno e DSCR di ogni anno.", "do": [{"scroll": "text=Risultati"}]},
+        {"title": "Centrale Rischi", "text": "Ogni mese inserisci il prospetto della Centrale Rischi della Banca d'Italia (o leggilo dal PDF con l'assistente): accordato, utilizzato e sconfinamenti per banca. Gli sconfinamenti entrano nei segnali di allerta.", "do": [{"goto": "/centrale-rischi"}]}
+      ]
+    },
+    {
+      "id": "commesse",
+      "section": "controllo",
+      "title": "Commesse e centri di costo",
+      "summary": "Ricavi e costi per lavoro o reparto, confrontati con il preventivo.",
+      "pages": ["/commesse"],
+      "steps": [
+        {"title": "Le commesse", "text": "Ogni commessa ha cliente, preventivo di ricavi e costi, date e stato. Le barre mostrano quanto è stato fatturato e speso rispetto al preventivo.", "do": [{"goto": "/commesse"}, {"company": "Azienda Alfa Srl"}]},
+        {"title": "Collegare fatture e costi", "text": "Fatture, cespiti, paghe e righe di prima nota si collegano alla commessa dal campo «Centro di costo o commessa». Se i costi superano il preventivo compare un avviso.", "do": [{"goto": "/fatture"}, {"click": "role=button[name='Contabilità'] >> nth=0"}], "highlight": "#ia-cc"}
+      ]
+    },
+    {
+      "id": "commercialista",
+      "section": "commercialista",
+      "title": "Lavorare con il commercialista",
+      "summary": "Chiarimenti, documenti, export e report mensile.",
+      "pages": ["/chiarimenti", "/documenti", "/export"],
+      "steps": [
+        {"title": "Chiarimenti", "text": "Il commercialista può fare una domanda su un movimento («Cos'è questo pagamento?»): arriva una notifica e la risposta resta attaccata al movimento.", "do": [{"goto": "/chiarimenti"}]},
+        {"title": "Documenti", "text": "F24 quietanzati, bilanci, contratti e altri documenti si condividono qui, con categoria e periodo.", "do": [{"goto": "/documenti"}]},
+        {"title": "Export e report", "text": "Excel con prima nota, fatture e scadenze; XML delle fatture; report mensile in PDF; prima nota in partita doppia nel formato del gestionale dello studio («Imposta il formato»: colonne, separatore, codici conto).", "do": [{"goto": "/export"}]}
+      ]
+    },
+    {
+      "id": "utenti-sicurezza",
+      "section": "amministrazione",
+      "title": "Utenti, sicurezza e impostazioni",
+      "summary": "Invitare persone, verifica in due passaggi, notifiche, backup.",
+      "pages": ["/utenti", "/impostazioni"],
+      "steps": [
+        {"title": "Invita un utente", "text": "In «Utenti e accessi» scrivi email, nome e ruolo e scegli le aziende. Il link di invito vale 7 giorni. Puoi cambiare ruolo, togliere l'accesso a un'azienda o disattivare la persona: le sue sessioni si chiudono subito.", "do": [{"goto": "/utenti"}, {"click": "role=button[name='+ Invita un utente']"}, {"wait": 600}], "highlight": "role=dialog"},
+        {"title": "Verifica in due passaggi", "text": "In «Impostazioni» attiva la verifica in due passaggi: dopo la password serve il codice dell'app sul telefono (Google Authenticator, Microsoft Authenticator…). È obbligatoria per autorizzare i pagamenti.", "do": [{"goto": "/impostazioni"}], "highlight": "section:has-text('verifica in due passaggi') >> nth=0"},
+        {"title": "Notifiche", "text": "Scegli cosa ricevere anche via email o WhatsApp: avvisi importanti, riepilogo del lunedì, report del primo del mese. Nel programma le notifiche arrivano sempre nella campanella.", "do": [{"scroll": "#notifiche"}], "highlight": "#notifiche"},
+        {"title": "Backup", "text": "Il server fa una copia del database ogni giorno (se è impostata la cartella dei backup). Come ripristinarla è spiegato nel README; con MongoDB Atlas o l'hosting di Emergent attiva anche i loro backup."}
+      ]
+    }
+  ]
+}

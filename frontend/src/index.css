@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-page text-ink font-sans antialiased;
+    font-size: 14px;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid #2346D8;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full min-h-[44px] rounded-lg border border-[#C9CDD4] bg-white px-3 text-sm text-ink placeholder:text-[#8A90A0] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+  }
+  .label {
+    @apply text-[13px] font-semibold text-ink;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .table-head {
+    @apply text-xs font-semibold text-muted border-b border-line;
+  }
+}
+
+/* Le etichette solo per lettori di schermo dentro tabelle scorrevoli non devono allargare la pagina su telefono. */
+.overflow-x-auto { position: relative; }

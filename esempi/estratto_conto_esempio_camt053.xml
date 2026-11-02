@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr><MsgId>ESEMPIO-0001</MsgId><CreDtTm>2026-10-28T06:00:00</CreDtTm></GrpHdr>
+    <Stmt>
+      <Id>STMT-2026-10</Id>
+      <CreDtTm>2026-10-28T06:00:00</CreDtTm>
+      <Acct><Id><IBAN>IT60X0542811101000000123456</IBAN></Id><Ccy>EUR</Ccy></Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">12330.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-10-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">13188.60</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-10-27</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <Amt Ccy="EUR">5300.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-12</Dt></BookgDt><ValDt><Dt>2026-10-12</Dt></ValDt>
+        <AcctSvcrRef>REF-0001</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Dbtr><Nm>RHO TRASPORTI SRL</Nm></Dbtr></RltdPties>
+          <RmtInf><Ustrd>SALDO FATTURA 41/2026</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+        <AddtlNtryInf>BONIFICO A VOSTRO FAVORE</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">4421.40</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-20</Dt></BookgDt><ValDt><Dt>2026-10-20</Dt></ValDt>
+        <AcctSvcrRef>REF-0002</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Nm>SIGMA FORNITURE SRL</Nm></Cdtr></RltdPties>
+          <RmtInf><Ustrd>FT 2026/398</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+        <AddtlNtryInf>DISPOSIZIONE DI BONIFICO</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">20.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-27</Dt></BookgDt><ValDt><Dt>2026-10-27</Dt></ValDt>
+        <AcctSvcrRef>REF-0003</AcctSvcrRef>
+        <AddtlNtryInf>COMMISSIONI CANONE CONTO</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

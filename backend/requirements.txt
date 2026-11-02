@@ -1,0 +1,20 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+motor>=3.3
+pydantic>=2.5
+python-dotenv>=1.0
+pyjwt>=2.8
+bcrypt>=4.1
+pyotp>=2.9
+openpyxl>=3.1
+python-multipart>=0.0.9
+defusedxml>=0.7
+reportlab>=4.0
+asn1crypto>=1.5
+pdfplumber>=0.11
+httpx>=0.26
+
+# test
+pytest>=8.0
+httpx>=0.26
+mongomock-motor>=0.0.29
