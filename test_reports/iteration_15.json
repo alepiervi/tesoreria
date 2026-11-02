@@ -1,0 +1,45 @@
+{
+  "summary": "Tested the real (non-demo) mode end to end against the public URL. Backend: 12 live API tests in /tmp/iter15/test_iter15.py, all passing on the first clean run except 1 test-script issue (GET /deadlines defaults to scope=open), which was fixed and re-verified. Results: /developer/status providers = import manuale / import XML manuale / dall'home banking / da configurare (titolare) / spento / Claude, with no 'demo' anywhere. /auth/me features are all off and ai=claude. POST bank-accounts/connect returns 400 and POST invoices/sync-sdi returns 400. Manual account plus CSV statement import (7 movements) works. FatturaPA XML import of an attiva and a passiva invoice works. A reminder sent with no mailbox returns 200 status=non_configurata, and with fake SMTP credentials returns 400 with a clear message. Manual authorize returns {ok, manual:true}, the deadline stays da_pagare with authorized_at, and mark-done sets it to pagato. Email settings: PUT without a password returns 400, a bad from_addr returns 400, a valid PUT works, and the password is never returned. The SMTP test with fake Aruba credentials returns 400 after about 5s, last_test.ok=false, and dev status changes to 'casella attiva'. /settings/email returns 403 for the commercialista and the developer (GET, PUT and test). The assistant gives real Claude answers with tool calls (saldi, scadenze, 3-7s). Receipt OCR read merchant, total 5,80, VAT 0,53 and date correctly. Frontend (Playwright, owner, collaborator and developer with TOTP): all requested flows passed. Two minor UI state-refresh bugs and one rendering issue were found (Claude markdown shown as raw text).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/assistant/status", "issue": "reads_receipts is computed as ai.name == 'anthropic', so it returns False with AI_PROVIDER=claude (EmergentClaudeAI.name='claude') even though receipt reading works. The frontend doesn't use it today, but the flag is wrong."},
+      {"endpoint": "POST /api/invoices/{id}/reminder", "issue": "With no mailbox configured the reminder is still pushed into invoice.reminders (status non_configurata), so 'Solleciti' shows '2 · ultimo ...' and the button becomes 'Nuovo sollecito' even though nothing was sent. Consider not counting unsent reminders, or labelling them 'non spedito'."},
+      {"endpoint": "POST /api/deadlines/{id}/authorize (manual mode)", "issue": "In manual mode the requester (collaborator who prepared the payment) gets no notification. Only the automatic path notifies them."},
+      {"endpoint": "/api/settings/email", "issue": "The mailbox config is a single global doc (id='email') that any is_owner user can overwrite. Fine for a single titolare, but multiple owners exist (iteration 14), so there is no per-owner ownership or audit view beyond the audit log."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EmailSettings (IntegrationSettings.js)", "issue": "After a failed 'Invia prova' the error box shows correctly, but the 'Ultima prova ... non riuscita' line (email-last-test) does not appear until the page is reloaded, because cfg is not refetched after the failed test.", "selector": "[data-testid='email-last-test']", "priority": "LOW"},
+      {"component": "Settings > Notifiche", "issue": "After saving the mailbox, the orange notice 'Le email non partono ancora...' stays visible until a reload. onSaved={reload} doesn't refresh the notification prefs (channels.email).", "selector": "Notifiche card Notice", "priority": "LOW"},
+      {"component": "Assistant.js", "issue": "Claude replies contain Markdown (**bold**, '|---|' tables, '- ' lists), which is shown as raw text. Either render markdown or tell the model in SYSTEM to answer in plain text without tables or asterisks.", "selector": "assistant answer bubble", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Scadenzario / Nuova scadenza, Scontrini, Conto manuale", "issues": ["Native <input type='date'> is used (nd-date, rc-date, ma-date) instead of a shadcn calendar picker", "In manual-deadline rows with 3 actions, 'Elimina' wraps onto a second line (row height jumps)"]}
+    ]
+  },
+  "test_report_links": ["/tmp/iter15/test_iter15.py", "/app/test_reports/pytest/pytest_iter15.xml"],
+  "action_items": [
+    "Render assistant answers as markdown, or force plain-text answers in the Claude system prompt",
+    "EmailSettings: refetch /settings/email after a failed test so the 'Ultima prova · non riuscita' line shows immediately",
+    "Settings: refresh notification prefs (channels.email) after the mailbox is saved so the orange notice disappears",
+    "assistant/status reads_receipts: include the 'claude' provider",
+    "Don't count non_configurata reminders as sent solleciti (or label them)"
+  ],
+  "critical_code_review_comments": [
+    "assistant.py status(): reads_receipts = ai.name == 'anthropic' should be ai.name in {'anthropic','claude'}",
+    "receivables.send_reminder: status non_configurata is stored as a reminder, which inflates reminders_count",
+    "deadlines.authorize_payment manual branch: no notify() to the requester and no audit of who prepared it",
+    "Brute force lockout (429 after 5 fails), CORS (no allow-origin for a foreign origin) and the bcrypt $2b$ hash in .env were verified OK"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12 on the clean run; the 1 failure was a test-script scope issue, fixed)", "frontend": "100% of requested flows functional; 3 minor UI issues"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore]. The developer 2FA is now ENROLLED; its secret is in /tmp/iter15/state.json (dev_secret). Owners and collaborators were created with password TestPass12345 (see state.json). The collaborator test_coll15_516cce is temporarily locked out (brute-force test).",
+  "seed_data_creation": "3 owners test_owner15_*@example.com (one per test run), 3 companies all named 'TEST Nureal Srl', a commercialista collaborator, manual accounts, imported statements, invoices T15/1, F15/9 and UI15/3, deadlines, a receipt, and a global app_settings email doc with fake Aruba creds (enabled). The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Live tests are in /tmp/iter15 (test_iter15.py, gen_files.py makes the XML and receipt image). Run with env DEV_PW and REACT_APP_BACKEND_URL. Tests assume email is NOT configured at start: delete app_settings {id:'email'} first. Wait 31s between logins of the same user (TOTP replay guard). No files were added to /app/backend/tests.",
+  "rca of the issue": "Stale UI states: EmailSettings.test() only sets an error on failure and never reloads cfg. Settings passes onSaved={reload}, which doesn't reload NotificationSettings prefs. Raw markdown: Assistant renders answer text as plain text while Claude returns markdown."
+}

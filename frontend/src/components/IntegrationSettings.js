@@ -13,6 +13,7 @@ export function EmailSettings({ onSaved }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
+  const refresh = () => api.get("/settings/email").then((r) => setCfg(r.data)).catch(() => {});
   useEffect(() => {
     api.get("/settings/email").then((r) => {
       setCfg(r.data);
@@ -44,8 +45,12 @@ export function EmailSettings({ onSaved }) {
     onSaved?.();
   });
   const test = () => run("test", async () => {
-    await api.post("/settings/email/test", { to: testTo });
-    toast(`Email di prova inviata a ${testTo}`);
+    try {
+      await api.post("/settings/email/test", { to: testTo });
+      toast(`Email di prova inviata a ${testTo}`);
+    } finally {
+      refresh();
+    }
   });
 
   return (

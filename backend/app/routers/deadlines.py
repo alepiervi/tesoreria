@@ -150,6 +150,12 @@ async def authorize_payment(deadline_id: str, body: PayIn, user: dict = Depends(
             "authorized_by_name": user.get("name", ""), "authorized_at": now_iso()}})
         await audit.log(user, "pagamento_autorizzato", d["company_id"], d["description"],
                         {"importo": d["amount_cents"], "modo": "home banking"})
+        if d.get("requested_by") and d["requested_by"] != user["id"]:
+            db = get_db()
+            requester = await db.users.find_one({"id": d["requested_by"]}, {"_id": 0})
+            if requester:
+                await notify(db, [requester], kind="pagamento", company_id=d["company_id"], link="/scadenze",
+                             title="Pagamento autorizzato", body=f"{d['description']}: autorizzato, va eseguito dall'home banking.")
         return {"ok": True, "manual": True}
     result = await provider.send_transfer(
         account, d.get("beneficiary", ""), d.get("iban", ""), d["amount_cents"], d["description"])

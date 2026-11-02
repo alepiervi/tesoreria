@@ -49,7 +49,7 @@ class ReceiptLink(BaseModel):
 async def status(user: dict = Depends(get_current_user)):
     ai = get_ai()
     return {"enabled": ai is not None, "provider": ai.name if ai else "none", "examples": EXAMPLES,
-            "reads_receipts": bool(ai and ai.name == "anthropic")}
+            "reads_receipts": bool(ai and ai.name in {"anthropic", "claude"})}
 
 
 @router.post("/assistant/ask")

@@ -109,6 +109,8 @@ async def send_reminder(invoice_id: str, body: ReminderIn, user: dict = Depends(
                               meta={"kind": "sollecito", "invoice_id": invoice_id})
     if result["status"] == "errore":
         raise HTTPException(400, result["error"])
+    if result["status"] == "non_configurata":
+        raise HTTPException(400, "Sollecito non spedito: il titolare deve prima configurare la casella email (Impostazioni → Casella email per gli invii).")
     reminder = {"at": now_iso(), "level": max(1, min(3, body.level)), "to": body.to.strip(), "by": user["id"],
                 "by_name": user.get("name", ""), "status": result["status"]}
     await db.invoices.update_one({"id": invoice_id}, {"$push": {"reminders": reminder}})

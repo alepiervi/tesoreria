@@ -337,6 +337,8 @@ class EmergentClaudeAI(AnthropicAI):
         system = SYSTEM.format(today=today().strftime("%d/%m/%Y"), companies=", ".join(tools.names.values()))
         past = [f"{'Utente' if h['role'] == 'user' else 'Assistente'}: {h['content']}" for h in history[-8:]
                 if h.get("role") in {"user", "assistant"} and isinstance(h.get("content"), str)]
+        system += ("\n\nScrivi in testo semplice: niente asterischi, tabelle, titoli o altri simboli di formattazione. "
+                   "Per gli elenchi usa righe che iniziano con un trattino.")
         if past:
             system += "\n\nConversazione precedente:\n" + "\n".join(past)[-6000:]
         functions = [{"type": "function", "function": {"name": t["name"], "description": t["description"],

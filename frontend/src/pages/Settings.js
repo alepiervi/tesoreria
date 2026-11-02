@@ -12,6 +12,7 @@ export default function Settings() {
   const toast = useToast();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const [mailVersion, setMailVersion] = useState(0);
   const [editing, setEditing] = useState(() => (user.is_owner && params.get("nuova") === "1" ? {} : null));
   useEffect(() => {
     if (params.has("nuova")) setParams({}, { replace: true });
@@ -25,11 +26,11 @@ export default function Settings() {
         <PasswordCard />
       </div>
 
-      {!user.is_developer && <NotificationPrefs />}
+      {!user.is_developer && <NotificationPrefs key={mailVersion} />}
       {!user.is_developer && <CategoryRules />}
       {user.is_owner && (
         <div className="grid gap-4 xl:grid-cols-2">
-          <EmailSettings onSaved={reload} />
+          <EmailSettings onSaved={() => { setMailVersion((v) => v + 1); reload(); }} />
           <SdiInfo />
         </div>
       )}
