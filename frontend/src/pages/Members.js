@@ -25,9 +25,10 @@ export default function Members() {
     }
   }, []);
 
+  const canManage = managed.length > 0;
   useEffect(() => {
-    load();
-  }, [load]);
+    if (canManage) load();
+  }, [load, canManage]);
 
   if (!managed.length) return <Empty title="Accesso non consentito" text="Solo il titolare può gestire gli utenti." />;
 

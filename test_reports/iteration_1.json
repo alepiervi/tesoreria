@@ -1,0 +1,32 @@
+{
+  "summary": "Imported Tesoreria app (FastAPI+Mongo, React). Backend: smoke test of 70+ GET endpoints (47 company-scoped x 3 companies + 25 global + company_id-query variants) for all 3 demo roles - zero 5xx. Commercialista isolation verified (sees only Alfa/Beta; Gamma APIs 404, Gamma company_id never exposed in group/aggregate endpoints). Assistant demo /api/assistant/ask answers correctly. Frontend: demo quick-login buttons fill credentials and login works; group dashboard renders KPIs and both charts; all 38 sidebar routes + company page + guide subpage load with no page errors, no console errors and no 4xx/5xx for titolare. Core flows tested: movimenti filters (direction/search incl. empty state), fatture list, riconciliazione manual-match dialog + AI suggest, assistant suggested question and free-text question. Commercialista UI: company selector only Alfa/Beta, Gamma page shows 'Azienda non trovata o non accessibile', /utenti shows 'Accesso non consentito'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/companies/{id}/ledger|parties|open-items|journal-export|accounting-export", "issue": "Return 422 without required query params (by design, not a bug)"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "/utenti as commercialista", "issue": "Page still calls GET /api/members which returns 403 (logged as console error) before showing 'Accesso non consentito'; cosmetic - could skip the call based on role", "affected_selectors": []},
+      {"flow": "/aziende/{gammaId} as commercialista", "issue": "dashboard?weeks=8 requested twice (404 both) - double fetch, harmless", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_smoke_all_gets.py", "/app/test_reports/pytest/smoke.xml"],
+  "action_items": [
+    "Optional: avoid calling /api/members on /utenti for non-titolare roles to remove the 403 console error"
+  ],
+  "critical_code_review_comments": [
+    "Gamma Srl's name shows up in commercialista's /deadlines, /forecast and /intercompany as the counterparty on Alfa/Beta's own invoices (e.g. 'Fattura 44/2026 · Azienda Gamma Srl'). This is the user's own data, not a leak; Gamma's company_id and data are never exposed.",
+    "The seed data and the browser clock are both around Oct-Nov 2026, so 'Entrate del mese' shows 0 € and many deadlines show as 'scaduta'. This is expected for the demo data."
+  ],
+  "updated_files": ["/app/backend/tests/test_smoke_all_gets.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None; used SEED_DEMO data",
+  "test_credentials": "titolare@demo.it / amministrazione@demo.it / commercialista@demo.it, password Demo2026demo",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Smoke test at /app/backend/tests/test_smoke_all_gets.py covers all GET endpoints for all roles plus commercialista isolation. Company IDs: Alfa 19a8d8b7..., Beta bb5bb271..., Gamma 05fda620-a82d-430c-b5b5-f86c6554de50. UI has few data-testids; use role/text selectors (demo buttons 'Titolare'/'Amministrazione'/'Commercialista', button[type=submit])."
+}
