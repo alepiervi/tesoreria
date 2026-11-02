@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Button, ErrorBox, Field } from "../components/ui";
+import { Button, ErrorBox, Field, Notice } from "../components/ui";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { IDLE_MINUTES } from "../lib/idle";
 
 const DEMO = [
   ["titolare@demo.it", "Titolare"],
@@ -55,6 +56,9 @@ export default function Login() {
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6">
           <ErrorBox>{error}</ErrorBox>
+          {new URLSearchParams(location.search).get("scaduta") === "1" && !error && (
+            <div data-testid="idle-logout-notice"><Notice>Sei stato disconnesso dopo {IDLE_MINUTES} minuti di inattività. Accedi di nuovo per continuare.</Notice></div>
+          )}
           {!needCode ? (
             <>
               <Field label="Email" htmlFor="email">

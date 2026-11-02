@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, getToken, setToken } from "./api";
+import { IDLE_MINUTES, idleExpired, markActivity, useIdleLogout } from "./idle";
 
 const AuthContext = createContext(null);
 const SELECTED_KEY = "tesoreria_company";
@@ -20,6 +21,7 @@ export function AuthProvider({ children }) {
   const [counts, setCounts] = useState({ to_reconcile: 0, open_questions: 0 });
 
   const loadSession = useCallback(async () => {
+    if (getToken() && idleExpired()) setToken(null);
     if (!getToken()) {
       setUser(null);
       setCompanies([]);
@@ -57,6 +59,7 @@ export function AuthProvider({ children }) {
   }, [user, refreshCounts]);
 
   const login = useCallback(async (token) => {
+    markActivity();
     setToken(token);
     setLoading(true);
     await loadSession();
@@ -67,6 +70,12 @@ export function AuthProvider({ children }) {
     setUser(null);
     setCompanies([]);
   }, []);
+
+  const idleTimeout = useCallback(() => {
+    logout();
+    window.location.assign("/login?scaduta=1");
+  }, [logout]);
+  const idleSecondsLeft = useIdleLogout(Boolean(user), idleTimeout);
 
   const setSelectedId = useCallback((id) => {
     setSelectedIdState(id);
@@ -90,7 +99,21 @@ export function AuthProvider({ children }) {
     };
   }, [user, companies, loading, selectedId, setSelectedId, login, logout, loadSession, counts, refreshCounts]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {idleSecondsLeft !== null && (
+        <div role="alert" data-testid="idle-warning"
+          className="fixed bottom-4 left-1/2 z-[100] w-[min(92vw,420px)] -translate-x-1/2 rounded-xl border border-line bg-white px-4 py-3 text-sm shadow-lg">
+          <p className="font-semibold">Sei ancora lì?</p>
+          <p className="text-muted">
+            Per sicurezza, dopo {IDLE_MINUTES} minuti di inattività verrai disconnesso tra <span data-testid="idle-seconds">{idleSecondsLeft}</span> secondi.
+            Muovi il mouse o premi un tasto per restare collegato.
+          </p>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
