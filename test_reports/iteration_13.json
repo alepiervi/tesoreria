@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 13 re-tested the fixes for the iteration 12 findings. All requested items pass. Backend: /tmp/iter13/test_iter13.py passed 8/8 against the public URL, and the in-process suite /app/backend/tests passed 111/111. (1) Owner A changing owner B's role (PUT) returns 403 and revoking B (DELETE) returns 403. B's memberships are unchanged. Deactivate and reset-2fa on B also return 403, and B's session stays valid. (2) Deactivate, activate and reset-2fa on the developer return 404, and PUT on the developer's membership returns 404. For a collaborator whose last company access was revoked (no shared company), deactivate, activate and reset-2fa return 404. (3) A company created by A automatically gives B the titolare role (GET /companies/{id} as B shows role=titolare). (4) Accepting an invite as an existing user: 5 mixed failures (wrong password or wrong code) each return 401. The 6th attempt returns 429 even with a valid code, and the normal /auth/login also returns 429. A recovery code in ABCD-EFGH format is accepted in invite-totp-code. The response is 200 with no access_token, and the token is then 404. (5) In the UI, after accepting as an existing user, /login shows the 'existing' notice 'Invito accettato: i nuovi accessi sono già attivi...' and the email is prefilled. (6) The Members 'new invite' link and the developer 'Invito titolare' link both equal window.location.origin + /invito/<token>, and both pages open correctly. (7) The served login bundle contains 0 occurrences of 'titolare@demo.it', 'log del server' and the developer password. The developer password also appears 0 times in the backend logs. (8) Members UI as owner A: all 5 of B's role selects are disabled, and B has no Revoca, Azzera verifica, Disattiva or add-access controls. A collaborator row has enabled selects, Revoca, Azzera verifica and Disattiva, and changing the role via the UI gives the 'Ruolo aggiornato' toast. Regression: developer forced 2FA enrollment in the UI passes. The flow is the setup notice, a wrong code is rejected, 10 codes appear, done stays disabled until the checkbox is ticked, then /sviluppatore. Developer login without a code returns 401 2fa_required and with a code returns 200. GET /api/companies returns [] and /members returns 403. Idle logout (last activity set 16 minutes back) redirects to /login?scaduta=1 with the idle notice.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/members/{user_id}/companies/{cid}", "issue": "This does not use _managed_target. An owner can add a membership for any non-owner user id, even one sharing no company, and even a deactivated user. Low risk inside a single group, but it is inconsistent with the deactivate/activate scoping."},
+      {"endpoint": "POST /api/invites/token/{t}/accept", "issue": "For an existing user, this does not check user.active. A deactivated user can accept an invite and gain memberships. They still cannot log in, so the impact is low."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Members, another titolare's rows", "issues": ["The disabled role selects look almost the same as enabled ones and there is no hint explaining why (e.g. 'Gli accessi di un titolare non si modificano'). Consider a tooltip, a short note or a plain role badge instead of the select."]}
+    ]
+  },
+  "test_report_links": ["/tmp/iter13/test_iter13.py", "/app/test_reports/pytest/iter13.xml"],
+  "action_items": [
+    "Optional: scope set_role to targets that share a managed company (reuse _managed_target, allowing first-time add) and reject inactive targets",
+    "Optional: reject an invite accept by a deactivated existing user",
+    "Optional: show an explanation for the disabled controls on other owners' rows"
+  ],
+  "critical_code_review_comments": [
+    "The DB was NOT wiped as the context note said. At the start it held iteration 12 test users (test_ownera_fa44f1, test_ownerb_b5b17c, test_collab_610a89) and 3 companies, and the developer already had 2FA enrolled. To test enrollment, the tester reset the developer's 2FA directly in Mongo, then re-enrolled it through the UI.",
+    "TOTP secrets are stored in plaintext in users.totp_secret. Consider encrypting them at rest with a key from env.",
+    "accept_invite returns different messages for a wrong password and for a wrong code, so it reveals when the password is correct. This is mitigated by the lockout, which counts both."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (8/8 new + 111/111 existing)", "frontend": "100%"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore]. 2FA was re-enrolled by the tester; the new TOTP secret is only in /tmp/iter13/dev_secret.txt (and in the DB). Test users: password TestPass12345, emails test_*_76e327@example.com. test_lock_76e327 is locked for 15 minutes.",
+  "seed_data_creation": "Created TEST_Co1_76e327 and TEST_Co2_76e327, owners test_ownera_76e327 and test_ownerb_76e327, users test_collab_76e327 (no access), test_exist_76e327 and test_lock_76e327 (locked). The test owner invite for test_ownerc_ui13 was cancelled. Iteration 12 leftovers are still in the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The test script is in /tmp/iter13 and needs env DEV_PW plus REACT_APP_BACKEND_URL. It reads the developer TOTP secret from /tmp/iter13/state.json (key dev_secret); update that from /tmp/iter13/dev_secret.txt, because the developer was re-enrolled after the run. TOTP replay protection rejects reuse of the same 30s step, so wait 31s between logins of the same user. No files were added to /app/backend/tests."
+}

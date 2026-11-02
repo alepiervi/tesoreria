@@ -88,8 +88,10 @@ async def set_role(user_id: str, company_id: str, body: RoleIn, user: dict = Dep
         raise HTTPException(404, "Utente non trovato.")
     if user_id == user["id"] and body.role != "titolare":
         raise HTTPException(400, "Non puoi togliere a te stesso il ruolo di titolare.")
-    if target.get("is_developer"):
-        raise HTTPException(404, "Utente non trovato.")
+    if user_id != user["id"]:
+        target = await _managed_target(user, user_id)
+        if not target.get("active", True):
+            raise HTTPException(400, "L'utente è disattivato: riattivalo prima di dargli accessi.")
     if target.get("is_owner") and user_id != user["id"]:
         raise HTTPException(403, "Non puoi cambiare gli accessi di un altro titolare.")
     existing = await db.memberships.find_one({"user_id": user_id, "company_id": company_id})
@@ -249,6 +251,8 @@ async def accept_invite(token: str, body: AcceptIn):
     owner_invite = invite.get("owner_invite", False)
     if user and user.get("is_developer"):
         raise HTTPException(400, "L'account sviluppatore non può avere accesso ai dati delle aziende.")
+    if user and not user.get("active", True):
+        raise HTTPException(403, "Questo account è disattivato. Chiedi al titolare di riattivarlo.")
     if user:
         from .auth import check_second_factor, fail_attempt
         locked_until = user.get("locked_until")

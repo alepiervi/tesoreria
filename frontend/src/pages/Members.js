@@ -87,6 +87,9 @@ export default function Members() {
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
+                  {m.is_owner && !m.is_me && (
+                    <p className="text-xs text-muted" data-testid={`owner-locked-note-${m.id}`}>Titolare del gruppo: i suoi accessi non si possono modificare da un altro titolare.</p>
+                  )}
                   {m.access.map((a) => (
                     <div key={a.company_id} className="flex flex-wrap items-center gap-3 rounded-lg bg-page px-3 py-2">
                       <span className="min-w-[160px] flex-1 text-sm font-semibold">{a.company_name}</span>
