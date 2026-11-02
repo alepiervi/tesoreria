@@ -17,6 +17,7 @@ from ..utils import mask_iban, new_id, now_iso, parse_date, to_cents, today
 from .common import load
 
 router = APIRouter(tags=["banks"])
+AUTO_OFF = "Il collegamento automatico con le banche non è attivo: importa l'estratto conto (CSV, Excel, XML o PDF) dal conto manuale."
 
 INITIAL_HISTORY_DAYS = 90
 MAX_STATEMENT_BYTES = 15 * 1024 * 1024
@@ -64,6 +65,8 @@ def _new_transaction(account: dict, external_id: str, d: str, description: str, 
 
 async def sync_account(db, account: dict) -> int:
     provider = get_banking_provider()
+    if provider is None:
+        raise HTTPException(400, AUTO_OFF)
     if account.get("last_sync_at"):
         since = parse_date(account["last_sync_at"]) - timedelta(days=3)
     else:
@@ -109,6 +112,8 @@ async def connect(company_id: str, body: ConnectIn, user: dict = Depends(get_cur
         if not manual or manual.get("provider") != MANUAL:
             raise HTTPException(400, "Il conto da trasformare non è un conto manuale di questa azienda.")
     provider = get_banking_provider()
+    if provider is None:
+        raise HTTPException(400, AUTO_OFF)
     result = await provider.start_connection(company, body.bank_name.strip())
     if result.get("redirect_url"):
         # Provider reale: l'utente va mandato alla pagina di consenso della banca.

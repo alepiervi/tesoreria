@@ -59,6 +59,7 @@ class Settings:
     # "anthropic" usa Claude (serve ANTHROPIC_API_KEY), "none" lo disattiva
     ai_provider: str = os.environ.get("AI_PROVIDER", "demo")
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
+    emergent_llm_key: str = os.environ.get("EMERGENT_LLM_KEY", "")
     ai_model: str = os.environ.get("AI_MODEL", "claude-sonnet-5-5")
 
     # Backup automatico del database (cartella sul server; vuoto = disattivato)

@@ -20,7 +20,7 @@ import httpx
 from ..config import settings
 from ..services.assistant_tools import TOOL_SPECS, Tools, anthropic_tools, period_from_text
 from ..services.categories import CATEGORIES
-from ..utils import today
+from ..utils import new_id, today
 
 logger = logging.getLogger("tesoreria.ai")
 API_URL = "https://api.anthropic.com/v1/messages"
@@ -300,9 +300,80 @@ class AnthropicAI(AIProvider):
         return {"targets": targets, "explanation": data.get("spiegazione", ""), "confidence": data.get("affidabilita", "bassa")}
 
 
+class EmergentClaudeAI(AnthropicAI):
+    """Claude tramite la chiave universale Emergent (EMERGENT_LLM_KEY)."""
+    name = "claude"
+
+    def _chat(self, system: str = "Rispondi in italiano."):
+        from emergentintegrations.llm.chat import LlmChat
+        return LlmChat(api_key=settings.emergent_llm_key, session_id=new_id(), system_message=system) \
+            .with_model("anthropic", settings.ai_model)
+
+    async def _ask_text(self, prompt: str, data: bytes | None = None, mime: str | None = None) -> str:
+        from emergentintegrations.llm.chat import FileContent, ImageContent, UserMessage
+        files = []
+        if data is not None:
+            b64 = base64.b64encode(data).decode()
+            files = [ImageContent(b64)] if (mime or "").startswith("image/") else [FileContent(mime or "application/pdf", b64)]
+        try:
+            return await self._chat().send_message(UserMessage(text=prompt, file_contents=files)) or ""
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Errore AI: %s", type(e).__name__)
+            raise RuntimeError("Il servizio dell'assistente non ha risposto correttamente.") from e
+
+    async def _call(self, payload: dict) -> dict:
+        # Usato dai metodi ereditati: un solo messaggio utente con testo ed eventuale file
+        content = payload["messages"][-1]["content"]
+        if isinstance(content, str):
+            text = await self._ask_text(content)
+        else:
+            prompt = next(b["text"] for b in content if b["type"] == "text")
+            src = next((b["source"] for b in content if b["type"] in {"image", "document"}), None)
+            text = await self._ask_text(prompt, base64.b64decode(src["data"]) if src else None, src and src["media_type"])
+        return {"content": [{"type": "text", "text": text}]}
+
+    async def ask(self, tools: Tools, question: str, history: list[dict]) -> dict:
+        from emergentintegrations.llm.chat import UserMessage
+        system = SYSTEM.format(today=today().strftime("%d/%m/%Y"), companies=", ".join(tools.names.values()))
+        past = [f"{'Utente' if h['role'] == 'user' else 'Assistente'}: {h['content']}" for h in history[-8:]
+                if h.get("role") in {"user", "assistant"} and isinstance(h.get("content"), str)]
+        if past:
+            system += "\n\nConversazione precedente:\n" + "\n".join(past)[-6000:]
+        functions = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                                         "parameters": t["input_schema"]}} for t in anthropic_tools()]
+        chat = self._chat(system).with_tools(functions, tool_choice="auto")
+        names = {n for n, _, _ in TOOL_SPECS}
+        used = []
+        try:
+            resp = await chat.send_message_with_tools(UserMessage(text=question))
+            for _ in range(6):
+                if not resp.tool_calls:
+                    return {"answer": (resp.content or "").strip() or "Non ho una risposta.", "tools": used}
+                for tc in resp.tool_calls:
+                    used.append(tc.name)
+                    try:
+                        if tc.name not in names:
+                            raise ValueError("strumento sconosciuto")
+                        args = tc.arguments if isinstance(tc.arguments, dict) else json.loads(tc.arguments or "{}")
+                        result = json.dumps(await getattr(tools, tc.name)(**args), ensure_ascii=False, default=str)[:20000]
+                    except Exception as e:  # noqa: BLE001 - l'errore torna al modello come risultato
+                        result = json.dumps({"errore": str(e)})
+                    chat.add_tool_result(tc.id, result)
+                resp = await chat.send_message_with_tools()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Errore AI: %s", type(e).__name__)
+            raise RuntimeError("Il servizio dell'assistente non ha risposto correttamente.") from e
+        return {"answer": "La domanda richiede troppi passaggi: prova a renderla più precisa.", "tools": used}
+
+
 def get_ai() -> AIProvider | None:
     if settings.ai_provider == "none":
         return None
+    if settings.ai_provider == "claude":
+        if not settings.emergent_llm_key:
+            logger.warning("AI_PROVIDER=claude ma EMERGENT_LLM_KEY è vuota: uso la modalità di base")
+            return DemoAI()
+        return EmergentClaudeAI()
     if settings.ai_provider == "anthropic":
         if not settings.anthropic_api_key:
             logger.warning("AI_PROVIDER=anthropic ma ANTHROPIC_API_KEY è vuota: uso la modalità di base")

@@ -17,7 +17,7 @@ from app.routers import (
     members, notes, notifications, operations, planning, receivables, transactions,
 )
 from app.seed import DEMO_PASSWORD, DEMO_PASSWORD_GENERATED, ensure_developer, seed_if_empty
-from app.routers import developer
+from app.routers import app_settings, developer
 from app.services.errors import record_server_error
 
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +61,7 @@ async def health():
 
 for module in (auth, companies, members, audit_log, banks, transactions, notes, invoices, deadlines,
                documents, dashboard, exports, intercompany, receivables, notifications, planning, assistant, accounting, control, operations, commissions,
-               developer):
+               developer, app_settings):
     api.include_router(module.router)
 
 app.include_router(api)

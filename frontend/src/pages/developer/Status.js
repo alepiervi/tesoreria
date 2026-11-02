@@ -39,12 +39,12 @@ export default function DevStatus() {
         <Stat label="Titolare" value={data.titolare_presente ? "Presente" : "Da invitare"} tone={data.titolare_presente ? undefined : "warn"} />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card title="Servizi collegati" subtitle="«demo» = modalità prova, nessun invio reale">
+        <Card title="Servizi collegati" subtitle="Come lavora oggi ogni collegamento">
           <ul className="divide-y divide-soft" data-testid="dev-providers">
             {Object.entries(data.providers).map(([k, v]) => (
               <li key={k} className="flex items-center justify-between py-2 text-sm">
                 <span className="capitalize">{k}</span>
-                <Badge tone={v === "demo" ? "orange" : "green"}>{v}</Badge>
+                <Badge tone={v === "demo" || v.startsWith("da configurare") ? "orange" : v === "spento" ? "gray" : "green"}>{v}</Badge>
               </li>
             ))}
             <li className="flex items-center justify-between py-2 text-sm">

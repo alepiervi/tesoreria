@@ -30,9 +30,15 @@ async def _store(channel: str, to: str, subject: str, body: str, status: str, er
     })
 
 
-def _send_smtp(to: str, subject: str, text: str, html: str | None, attachments: list):
+def _env_smtp() -> dict:
+    return {"host": settings.smtp_host, "port": settings.smtp_port, "ssl": settings.smtp_ssl, "user": settings.smtp_user,
+            "password": settings.smtp_password, "from_addr": settings.smtp_from or settings.smtp_user, "from_name": ""}
+
+
+def _send_smtp(cfg: dict, to: str, subject: str, text: str, html: str | None, attachments: list):
+    from email.utils import formataddr
     msg = EmailMessage()
-    msg["From"] = settings.smtp_from or settings.smtp_user
+    msg["From"] = formataddr((cfg.get("from_name") or "", cfg["from_addr"])) if cfg.get("from_name") else cfg["from_addr"]
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(text)
@@ -42,36 +48,42 @@ def _send_smtp(to: str, subject: str, text: str, html: str | None, attachments: 
         maintype, subtype = (mime or "application/octet-stream").split("/", 1)
         msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=name)
     context = ssl.create_default_context()
-    if settings.smtp_ssl:
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context, timeout=30) as s:
-            if settings.smtp_user:
-                s.login(settings.smtp_user, settings.smtp_password)
+    if cfg["ssl"]:
+        with smtplib.SMTP_SSL(cfg["host"], cfg["port"], context=context, timeout=30) as s:
+            if cfg["user"]:
+                s.login(cfg["user"], cfg["password"])
             s.send_message(msg)
     else:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as s:
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=30) as s:
             s.starttls(context=context)
-            if settings.smtp_user:
-                s.login(settings.smtp_user, settings.smtp_password)
+            if cfg["user"]:
+                s.login(cfg["user"], cfg["password"])
             s.send_message(msg)
 
 
 async def send_email(to: str, subject: str, text: str, html: str | None = None,
                      attachments: list | None = None, meta: dict | None = None) -> dict:
-    """attachments: lista di (nome_file, bytes, tipo_mime). Restituisce {'status': 'inviato'|'demo'|'errore'}."""
+    """attachments: lista di (nome_file, bytes, tipo_mime).
+    Restituisce {'status': 'inviato'|'demo'|'non_configurata'|'errore'}."""
+    from ..services.app_settings import get_email_config
     attachments = attachments or []
     if not to or "@" not in to:
         return {"status": "errore", "error": "Indirizzo email mancante o non valido."}
-    if settings.email_provider == "smtp":
+    cfg = await get_email_config() or (_env_smtp() if settings.email_provider == "smtp" else None)
+    if cfg:
         try:
-            await asyncio.to_thread(_send_smtp, to, subject, text, html, attachments)
+            await asyncio.to_thread(_send_smtp, cfg, to, subject, text, html, attachments)
             await _store("email", to, subject, text, "inviato", attachments=attachments, meta=meta)
             return {"status": "inviato"}
         except Exception as e:  # noqa: BLE001 - l'errore va mostrato all'utente, non deve bloccare il programma
-            logger.warning("Invio email fallito: %s", e)
-            await _store("email", to, subject, text, "errore", str(e), attachments, meta)
-            return {"status": "errore", "error": "Invio non riuscito: controlla le impostazioni email del server."}
-    await _store("email", to, subject, text, "demo", attachments=attachments, meta=meta)
-    return {"status": "demo"}
+            logger.warning("Invio email fallito: %s", type(e).__name__)
+            await _store("email", to, subject, text, "errore", f"{type(e).__name__}: {e}"[:300], attachments, meta)
+            return {"status": "errore", "error": "Invio non riuscito: controlla server, utente e password della casella (Impostazioni → Casella email)."}
+    if settings.email_provider == "demo":
+        await _store("email", to, subject, text, "demo", attachments=attachments, meta=meta)
+        return {"status": "demo"}
+    await _store("email", to, subject, text, "non_configurata", attachments=attachments, meta=meta)
+    return {"status": "non_configurata", "error": "Email non inviata: il titolare deve configurare la casella in Impostazioni."}
 
 
 def _send_whatsapp_meta(to: str, text: str):
@@ -99,6 +111,8 @@ async def send_whatsapp(to: str, text: str, meta: dict | None = None) -> dict:
             logger.warning("Invio WhatsApp fallito: %s", e)
             await _store("whatsapp", to, "", text, "errore", str(e), meta=meta)
             return {"status": "errore", "error": "Invio WhatsApp non riuscito."}
+    if settings.whatsapp_provider == "none":
+        return {"status": "spento", "error": "WhatsApp non è attivo."}
     await _store("whatsapp", to, "", text, "demo", meta=meta)
     return {"status": "demo"}
 

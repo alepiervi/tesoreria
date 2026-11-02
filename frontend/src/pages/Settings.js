@@ -1,3 +1,4 @@
+import { EmailSettings, SdiInfo } from "../components/IntegrationSettings";
 import { RecoveryCodes, TotpSetup } from "../components/TwoFactorSetup";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -26,6 +27,12 @@ export default function Settings() {
 
       {!user.is_developer && <NotificationPrefs />}
       {!user.is_developer && <CategoryRules />}
+      {user.is_owner && (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <EmailSettings onSaved={reload} />
+          <SdiInfo />
+        </div>
+      )}
       {user.is_owner && <Outbox />}
 
       {!user.is_developer && <Card title="Le tue aziende" actions={user.is_owner && <Button data-testid="new-company-btn" onClick={() => setEditing({})}>+ Nuova azienda</Button>}>
@@ -239,7 +246,7 @@ function NotificationPrefs() {
     setBusy("test");
     try {
       const r = await api.post("/me/notification-settings/test");
-      toast(r.data.mode === "demo" ? "Riepilogo creato nella casella di prova (le email non partono in modalità prova)" : `Riepilogo inviato a ${prefs.email}`);
+      toast(r.data.mode === "smtp" ? `Riepilogo inviato a ${prefs.email}` : "Email non inviata: il titolare deve configurare la casella email in Impostazioni", r.data.mode === "smtp" ? undefined : "orange");
     } catch (e) {
       toast(errorMessage(e), "orange");
     } finally {
@@ -252,8 +259,8 @@ function NotificationPrefs() {
       <Card title="Notifiche" subtitle="Nel programma le vedi sempre (campanella). Qui scegli cosa ricevere anche fuori.">
         <div className="flex flex-col gap-3">
           <ErrorBox>{error}</ErrorBox>
-          {prefs.channels.email === "demo" && (
-            <Notice tone="orange">Il server è in modalità prova: le email non vengono spedite ma salvate nella "Casella di prova" qui sotto (visibile al titolare).</Notice>
+          {prefs.channels.email !== "smtp" && (
+            <Notice tone="orange">Le email non partono ancora: il titolare deve configurare la casella email (Impostazioni → Casella email per gli invii).</Notice>
           )}
           <label className="flex min-h-[44px] items-center gap-2 text-sm">
             <input type="checkbox" className="h-[18px] w-[18px]" checked={prefs.email_alerts} onChange={set("email_alerts")} />
@@ -267,11 +274,13 @@ function NotificationPrefs() {
             <input type="checkbox" className="h-[18px] w-[18px]" checked={prefs.monthly_report} onChange={set("monthly_report")} />
             Report mensile in PDF il primo del mese
           </label>
-          <label className="flex min-h-[44px] items-center gap-2 text-sm">
-            <input type="checkbox" className="h-[18px] w-[18px]" checked={prefs.whatsapp_alerts} onChange={set("whatsapp_alerts")} />
-            Avvisi importanti anche su WhatsApp
-          </label>
-          {prefs.whatsapp_alerts && (
+          {prefs.channels.whatsapp !== "none" && (
+            <label className="flex min-h-[44px] items-center gap-2 text-sm">
+              <input type="checkbox" className="h-[18px] w-[18px]" checked={prefs.whatsapp_alerts} onChange={set("whatsapp_alerts")} />
+              Avvisi importanti anche su WhatsApp
+            </label>
+          )}
+          {prefs.channels.whatsapp !== "none" && prefs.whatsapp_alerts && (
             <Field label="Numero WhatsApp" htmlFor="wa-num" hint="Con il prefisso internazionale, es. +39 333 1234567">
               <input id="wa-num" type="tel" className="input max-w-xs" value={prefs.whatsapp_number} onChange={set("whatsapp_number")} />
             </Field>
@@ -329,10 +338,9 @@ function Outbox() {
   useEffect(() => {
     api.get("/outbox", { params: { limit: 30 } }).then((r) => setData(r.data)).catch(() => setData({ items: [] }));
   }, []);
-  const demo = data && (data.email_mode === "demo" || data.whatsapp_mode === "demo");
   return (
-    <Card title={demo ? "Casella di prova" : "Messaggi inviati"}
-      subtitle={demo ? "Email e WhatsApp che il programma avrebbe spedito. Si attivano davvero configurando il server (vedi README)." : "Ultimi messaggi inviati dal programma"}>
+    <Card title="Messaggi del programma"
+      subtitle="Ultime email inviate (o non partite perché la casella non era configurata)">
       {!data ? <Loading /> : data.items.length === 0 ? <p className="text-sm text-muted">Nessun messaggio.</p> : (
         <ul className="divide-y divide-soft">
           {data.items.map((m) => (

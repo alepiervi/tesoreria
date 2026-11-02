@@ -7,7 +7,8 @@ import { INVOICE_STATUS, addDays, eur, fmtDate, todayIso } from "../lib/format";
 
 export default function Invoices() {
   const [company, setCompany] = usePageCompany("view");
-  const { can, refreshCounts } = useAuth();
+  const { can, refreshCounts, user } = useAuth();
+  const sdiAuto = Boolean(user?.features?.sdi_auto);
   const toast = useToast();
   const [direction, setDirection] = useState("passiva");
   const [status, setStatus] = useState("");
@@ -96,7 +97,7 @@ export default function Invoices() {
                 <input ref={fileRef} type="file" accept=".xml,application/xml,text/xml" multiple className="sr-only" id="xml-upload"
                   onChange={(e) => upload(e.target.files)} />
                 <Button variant="secondary" loading={busy === "import"} onClick={() => fileRef.current?.click()}>Importa XML</Button>
-                <Button variant="secondary" loading={busy === "sdi"} onClick={syncSdi}>Scarica da SDI</Button>
+                {sdiAuto && <Button variant="secondary" loading={busy === "sdi"} onClick={syncSdi}>Scarica da SDI</Button>}
                 <Button onClick={() => setManualOpen(true)}>+ Nuova fattura</Button>
               </>
             )}
@@ -119,7 +120,7 @@ export default function Invoices() {
       {!items ? <Loading /> : (
         <Card padded={false}>
           {items.length === 0 ? (
-            <Empty title="Nessuna fattura" text={canManage ? "Importa i file XML dal cassetto fiscale o scarica le fatture dallo SDI." : "Non ci sono fatture con questi filtri."} />
+            <Empty title="Nessuna fattura" text={canManage ? (sdiAuto ? "Importa i file XML dal cassetto fiscale o scarica le fatture dallo SDI." : "Importa i file XML scaricati dal cassetto fiscale o dal tuo gestionale.") : "Non ci sono fatture con questi filtri."} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-sm">

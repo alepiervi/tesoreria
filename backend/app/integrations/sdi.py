@@ -85,7 +85,9 @@ class DemoSdiProvider(SdiProvider):
         )]
 
 
-def get_sdi_provider() -> SdiProvider:
+def get_sdi_provider() -> SdiProvider | None:
+    if settings.sdi_provider == "none":
+        return None
     providers = {"demo": DemoSdiProvider}
     cls = providers.get(settings.sdi_provider)
     if cls is None:

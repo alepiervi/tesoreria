@@ -26,7 +26,9 @@ class DemoPaymentsProvider(PaymentsProvider):
         return {"status": "inviato", "payment_ref": "DEMO-" + secrets.token_hex(5).upper(), "confirm_url": None}
 
 
-def get_payments_provider() -> PaymentsProvider:
+def get_payments_provider() -> PaymentsProvider | None:
+    if settings.payments_provider == "none":
+        return None
     providers = {"demo": DemoPaymentsProvider}
     cls = providers.get(settings.payments_provider)
     if cls is None:

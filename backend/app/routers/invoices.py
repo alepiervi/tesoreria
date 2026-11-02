@@ -84,7 +84,10 @@ async def sync_sdi(company_id: str, user: dict = Depends(get_current_user)):
     await require(user, company_id, "manage_invoices")
     db = get_db()
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
-    xmls = await get_sdi_provider().fetch_new_invoices(company)
+    provider = get_sdi_provider()
+    if provider is None:
+        raise HTTPException(400, "Il collegamento con lo SDI non è attivo: importa i file XML delle fatture.")
+    xmls = await provider.fetch_new_invoices(company)
     created = 0
     for xml in xmls:
         for doc in parse_fatturapa(xml.encode("utf-8")):

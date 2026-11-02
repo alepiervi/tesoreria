@@ -91,7 +91,9 @@ class DemoBankingProvider(BankingProvider):
         return account.get("balance_cents", 0)
 
 
-def get_banking_provider() -> BankingProvider:
+def get_banking_provider() -> BankingProvider | None:
+    if settings.banking_provider == "none":
+        return None
     providers = {"demo": DemoBankingProvider}
     cls = providers.get(settings.banking_provider)
     if cls is None:

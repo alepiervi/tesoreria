@@ -126,7 +126,7 @@ export default function Receivables() {
           </Card>
         </>
       )}
-      <ReminderModal target={remind} onClose={() => setRemind(null)} onDone={(s) => { setRemind(null); toast(s === "demo" ? "Sollecito pronto (modalità prova: visibile in Impostazioni → Casella di prova)" : "Sollecito inviato"); load(); }} />
+      <ReminderModal target={remind} onClose={() => setRemind(null)} onDone={(s) => { setRemind(null); toast(s === "inviato" ? "Sollecito inviato" : "Sollecito registrato ma non spedito: il titolare deve configurare la casella email in Impostazioni", s === "inviato" ? undefined : "orange"); load(); }} />
       <ContactModal party={contact} onClose={() => setContact(null)} onDone={() => { setContact(null); toast("Contatto salvato"); load(); }} />
     </>
   );

@@ -171,7 +171,8 @@ async def enroll_finish(body: SetupIn):
 
 @router.get("/me")
 async def me(user: dict = Depends(get_current_user)):
-    return {"user": public_user(user), "companies": await user_permissions_by_company(user)}
+    from .app_settings import features
+    return {"user": {**public_user(user), "features": await features()}, "companies": await user_permissions_by_company(user)}
 
 
 @router.post("/logout-everywhere")

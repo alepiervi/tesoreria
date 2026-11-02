@@ -10,7 +10,8 @@ import { KIND_LABELS, ROLE_LABELS, TX_STATUS, eur, fmtDate } from "../lib/format
 
 export default function CompanyPage() {
   const { companyId } = useParams();
-  const { byId, can, setSelectedId, companies, refreshCounts } = useAuth();
+  const { byId, can, setSelectedId, companies, refreshCounts, user } = useAuth();
+  const bankAuto = Boolean(user?.features?.bank_auto);
   const navigate = useNavigate();
   const toast = useToast();
   const company = byId[companyId];
@@ -77,7 +78,7 @@ export default function CompanyPage() {
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
-            {canBanks && (
+            {canBanks && bankAuto && (
               <Button variant="secondary" loading={busy === "sync"}
                 onClick={() => run("sync", () => api.post(`/companies/${companyId}/bank-accounts/sync-all`),
                   (d) => d.new_transactions ? `${d.new_transactions} nuovi movimenti scaricati` : "Nessun nuovo movimento")}>
@@ -101,7 +102,7 @@ export default function CompanyPage() {
         <Card title="Conti" actions={canBanks && (
           <>
             <Button variant="secondary" onClick={() => setManualOpen(true)}>+ Conto o carta</Button>
-            <Button variant="secondary" onClick={() => { setConvert(null); setConnectOpen(true); }}>+ Collega in automatico</Button>
+            {bankAuto && <Button variant="secondary" onClick={() => { setConvert(null); setConnectOpen(true); }}>+ Collega in automatico</Button>}
           </>
         )}>
           {data.accounts.length === 0 ? (
@@ -133,7 +134,7 @@ export default function CompanyPage() {
                       {canBanks && !off && (
                         <div className="flex flex-wrap gap-2">
                           <Button variant="secondary" className="min-h-[40px]" onClick={() => setImportFor(a)}>{a.account_type === "carta" ? "Importa estratto carta" : "Importa estratto conto"}</Button>
-                          {a.account_type !== "carta" && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => { setConvert(a); setConnectOpen(true); }}>Rendi automatico</Button>}
+                          {bankAuto && a.account_type !== "carta" && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => { setConvert(a); setConnectOpen(true); }}>Rendi automatico</Button>}
                         </div>
                       )}
                     </li>

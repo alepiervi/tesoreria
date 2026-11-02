@@ -142,7 +142,16 @@ async def authorize_payment(deadline_id: str, body: PayIn, user: dict = Depends(
     if d["kind"] != "f24" and not d.get("iban"):
         raise HTTPException(400, "Manca l'IBAN del beneficiario: aggiungilo alla scadenza.")
     account = await _check_account(d, body.account_id)
-    result = await get_payments_provider().send_transfer(
+    provider = get_payments_provider()
+    if provider is None:
+        # Pagamento eseguito dall'home banking: qui resta l'autorizzazione, poi si segna come pagato
+        await get_db().deadlines.update_one({"id": deadline_id}, {"$set": {
+            "status": "da_pagare", "account_id": body.account_id, "authorized_by": user["id"],
+            "authorized_by_name": user.get("name", ""), "authorized_at": now_iso()}})
+        await audit.log(user, "pagamento_autorizzato", d["company_id"], d["description"],
+                        {"importo": d["amount_cents"], "modo": "home banking"})
+        return {"ok": True, "manual": True}
+    result = await provider.send_transfer(
         account, d.get("beneficiary", ""), d.get("iban", ""), d["amount_cents"], d["description"])
     await get_db().deadlines.update_one({"id": deadline_id}, {"$set": {
         "status": "inviato", "account_id": body.account_id, "payment_ref": result.get("payment_ref"),

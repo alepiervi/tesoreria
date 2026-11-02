@@ -13,6 +13,9 @@ reportlab>=4.0
 asn1crypto>=1.5
 pdfplumber>=0.11
 httpx>=0.26
+cryptography>=42
+--extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+emergentintegrations>=0.2.2
 
 # test
 pytest>=8.0

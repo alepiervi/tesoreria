@@ -11,6 +11,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user, require_developer
 from ..security import hash_token, new_invite_token
+from ..services.app_settings import email_mode
 from ..services.errors import record_client_error
 from ..utils import new_id, now_iso, now_utc
 
@@ -60,8 +61,12 @@ async def status(user: dict = Depends(developer)):
         "database": {"ok": db_ok, "ping_ms": ping_ms},
         "titolare_presente": await db.users.count_documents({"is_owner": True, "is_developer": {"$ne": True}}) > 0,
         "providers": {
-            "banche": settings.banking_provider, "sdi": settings.sdi_provider, "pagamenti": settings.payments_provider,
-            "email": settings.email_provider, "whatsapp": settings.whatsapp_provider, "assistente": settings.ai_provider,
+            "banche": "import manuale" if settings.banking_provider == "none" else settings.banking_provider,
+            "sdi": "import XML manuale" if settings.sdi_provider == "none" else settings.sdi_provider,
+            "pagamenti": "dall'home banking" if settings.payments_provider == "none" else settings.payments_provider,
+            "email": {"smtp": "casella attiva", "non_configurata": "da configurare (titolare)"}.get(await email_mode(), "demo"),
+            "whatsapp": "spento" if settings.whatsapp_provider == "none" else settings.whatsapp_provider,
+            "assistente": {"claude": "Claude", "none": "spento"}.get(settings.ai_provider, settings.ai_provider),
         },
         "sicurezza": {"2fa_per_pagamenti": settings.require_2fa_for_payments, "dati_demo": settings.seed_demo},
         "scheduler": {"attivo": settings.scheduler_enabled, "attivita": [

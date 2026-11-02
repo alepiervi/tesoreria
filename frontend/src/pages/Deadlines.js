@@ -110,13 +110,18 @@ function DeadlineList() {
                           {d.estimate && <span className="block text-xs text-warn-text">Stima calcolata dalle fatture: l'importo esatto lo conferma il commercialista</span>}
                         </td>
                         <td className={`num whitespace-nowrap py-3 pr-3 text-right font-semibold ${isOut ? "text-warn-amount" : ""}`}>{isOut ? "− " : "+ "}{eur(d.amount_cents)}</td>
-                        <td className="py-3 pr-3"><Badge tone={st[1]}>{st[0]}</Badge></td>
+                        <td className="py-3 pr-3">
+                          {d.status === "da_pagare" && d.authorized_at
+                            ? <Badge tone="blue" data-testid={`deadline-authorized-${d.id}`}>Autorizzato · da pagare in banca</Badge>
+                            : <Badge tone={st[1]}>{st[0]}</Badge>}
+                          {d.status === "da_pagare" && d.authorized_by_name && <span className="block text-xs text-muted">da {d.authorized_by_name}</span>}
+                        </td>
                         <td className="py-3 pr-5">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {isOut && ["da_pagare", "in_attesa_autorizzazione"].includes(d.status) && p.includes("authorize_payment") && (
+                            {isOut && ["da_pagare", "in_attesa_autorizzazione"].includes(d.status) && !d.authorized_at && p.includes("authorize_payment") && (
                               <Button className="min-h-[40px]" onClick={() => setPayFor({ d, mode: "authorize" })}>Autorizza pagamento</Button>
                             )}
-                            {isOut && d.status === "da_pagare" && p.includes("request_payment") && !p.includes("authorize_payment") && (
+                            {isOut && d.status === "da_pagare" && !d.authorized_at && p.includes("request_payment") && !p.includes("authorize_payment") && (
                               <Button variant="secondary" className="min-h-[40px]" onClick={() => setPayFor({ d, mode: "request" })}>Prepara pagamento</Button>
                             )}
                             {isOut && d.status === "in_attesa_autorizzazione" && !p.includes("authorize_payment") && (
@@ -153,6 +158,8 @@ function DeadlineList() {
 }
 
 function PayModal({ state, onClose, onDone }) {
+  const { user } = useAuth();
+  const payAuto = Boolean(user?.features?.payments_auto);
   const [accounts, setAccounts] = useState([]);
   const [accountId, setAccountId] = useState("");
   const [error, setError] = useState("");
@@ -176,7 +183,9 @@ function PayModal({ state, onClose, onDone }) {
     try {
       const url = mode === "authorize" ? `/deadlines/${d.id}/authorize` : `/deadlines/${d.id}/request-payment`;
       const res = await api.post(url, { account_id: accountId });
-      onDone(mode === "authorize" ? `Bonifico inviato (rif. ${res.data.payment_ref})` : "Pagamento preparato: ora deve autorizzarlo il titolare");
+      onDone(mode !== "authorize" ? "Pagamento preparato: ora deve autorizzarlo il titolare"
+        : res.data.manual ? "Pagamento autorizzato: fai il bonifico dall'home banking, poi segna la scadenza come pagata"
+          : `Bonifico inviato (rif. ${res.data.payment_ref})`);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -186,7 +195,7 @@ function PayModal({ state, onClose, onDone }) {
 
   return (
     <Modal open onClose={onClose} title={mode === "authorize" ? "Autorizza il pagamento" : "Prepara il pagamento"}
-      footer={<><Button variant="secondary" onClick={onClose}>Annulla</Button><Button onClick={submit} loading={busy} disabled={!accountId}>{mode === "authorize" ? `Paga ${eur(d.amount_cents)}` : "Invia al titolare"}</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Annulla</Button><Button onClick={submit} loading={busy} disabled={!accountId}>{mode === "authorize" ? (payAuto ? `Paga ${eur(d.amount_cents)}` : `Autorizza ${eur(d.amount_cents)}`) : "Invia al titolare"}</Button></>}>
       <div className="flex flex-col gap-4">
         <ErrorBox>{error}</ErrorBox>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -201,7 +210,9 @@ function PayModal({ state, onClose, onDone }) {
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.bank_name} · {a.label} {a.iban_masked} — {eur(a.balance_cents)}</option>)}
           </select>
         </Field>
-        {mode === "authorize" && <Notice>Modalità demo: il bonifico è simulato. Con un provider reale confermerai con le credenziali della banca.</Notice>}
+        {mode === "authorize" && !payAuto && (
+          <div data-testid="manual-payment-notice"><Notice>Il programma registra la tua autorizzazione. Il bonifico lo fai dall'home banking della banca; quando è partito premi «Segna pagata».</Notice></div>
+        )}
       </div>
     </Modal>
   );

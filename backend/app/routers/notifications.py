@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ..config import settings
+from ..services.app_settings import email_mode
 from ..db import get_db
 from ..deps import get_current_user, require_owner
 from ..services import notifications as svc
@@ -46,7 +47,7 @@ async def mark_all_read(user: dict = Depends(get_current_user)):
 @router.get("/me/notification-settings")
 async def get_prefs(user: dict = Depends(get_current_user)):
     return {**svc.prefs_of(user), "email": user["email"],
-            "channels": {"email": settings.email_provider, "whatsapp": settings.whatsapp_provider}}
+            "channels": {"email": await email_mode(), "whatsapp": settings.whatsapp_provider}}
 
 
 @router.put("/me/notification-settings")
@@ -64,7 +65,7 @@ async def set_prefs(body: PrefsIn, user: dict = Depends(get_current_user)):
 async def test_prefs(user: dict = Depends(get_current_user)):
     """Manda subito a se stessi il riepilogo settimanale (per vedere come arriva)."""
     sent = await svc.send_weekly_digests(get_db(), only_user_id=user["id"])
-    return {"sent": sent, "mode": settings.email_provider}
+    return {"sent": sent, "mode": await email_mode()}
 
 
 @router.post("/notifications/run-now")
@@ -79,4 +80,4 @@ async def outbox(limit: int = Query(50, le=200), user: dict = Depends(get_curren
     """Messaggi inviati o, in modalità demo, simulati. Visibile solo al titolare."""
     require_owner(user)
     items = await get_db().outbox.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
-    return {"items": items, "email_mode": settings.email_provider, "whatsapp_mode": settings.whatsapp_provider}
+    return {"items": items, "email_mode": await email_mode(), "whatsapp_mode": settings.whatsapp_provider}
