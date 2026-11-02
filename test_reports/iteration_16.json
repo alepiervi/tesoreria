@@ -1,0 +1,17 @@
+{
+  "summary": "Follow-up to iteration 15, tested in real (non-demo) mode against the public URL. All 6 fixes were verified in both the backend and the UI. Backend: 3 live pytest tests in /tmp/iter16/test_iter16.py, 3/3 passed. (1) A reminder with no mailbox returns 400 'Sollecito non spedito: il titolare deve prima configurare la casella email...' and invoice.reminders stays at 0. (2) An amministrazione collaborator ran request-payment, then the owner ran a manual authorize ({ok, manual:true}). The collaborator got the notification 'Pagamento autorizzato' with the text '...autorizzato, va eseguito dall'home banking.' (3) /assistant/status returns reads_receipts=true and provider=claude. The Claude answer to 'Riepilogo saldi e scadenze del mese' (5.3s) has no '**', no tables and no '#' headings, and the figures are correct (saldo 10.000, da pagare 988, da incassare 1.220). Frontend (Playwright, owner and collaborator logged in with TOTP): on Crediti, sending a reminder shows the error inside the modal. After closing it the button is still 'Sollecita' and the Solleciti column still says 'Nessuno'. In Impostazioni the orange 'Le email non partono ancora' notice was visible before saving and disappeared right after saving the Aruba preset with fake credentials, without a reload. 'Invia prova' shows the error box 'Invio non riuscito...', and email-last-test changes to '· non riuscita' without a reload. The first SMTP attempt took about 8s and later ones about 1s; my first script read the page too early, which was a test timing issue and not a bug. The collaborator's bell showed '1 da leggere' and /notifiche listed 'Pagamento autorizzato'. The assistant UI answer was plain text with dash lists only.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/tmp/iter16/test_iter16.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "deadlines.authorize_payment: the requester-notification block is duplicated in the manual branch and the provider branch. It could be pulled into a small helper (minor DRY)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore], now enrolled in 2FA (secret in /tmp/iter16/state.json). Owner test_owner16_3f8f5e@example.com and amministrazione test_amm16_3f8f5e@example.com, password TestPass12345, TOTP secrets in /tmp/iter16/state.json.",
+  "seed_data_creation": "Created: owner and amministrazione collaborator, company 'TEST Nureal Srl', a manual bank account, 2 imported XML invoices (T16/1 attiva, F16/9 passiva), deadline 'TEST affitto 16' (authorized), and app_settings email with fake Aruba credentials (last_test ok=false). The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Live tests are in /tmp/iter16 (test_iter16.py, gen_files.py). Before running, delete app_settings {id:'email'} and run with env DEV_PW and REACT_APP_BACKEND_URL. Wait 31s between logins of the same user (TOTP replay guard). The SMTP test with fake Aruba credentials can take about 8s on the first try. Nothing was added to /app/backend/tests or test_reports/pytest."
+}

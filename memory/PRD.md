@@ -25,8 +25,10 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: Mandatory 2FA at every login for all roles (REQUIRE_2FA_LOGIN): forced enrollment with setup_token, 10 single-use recovery codes, TOTP replay protection, code failures count toward lockout, owner can reset collaborators 2FA; invites never give a session; security headers; JWT_SECRET required; developer password only as bcrypt hash (DEVELOPER_PASSWORD_HASH); no passwords in code, README, memory or bundle; owners cannot modify other owners; new companies go to all owners
 
+- 2026-06: Real mode: BANKING/SDI/PAYMENTS/WHATSAPP/EMAIL=none (automatic features hidden, never fake data), manual payment authorization (da pagare + authorized_at, then mark-done), AI=Claude sonnet-5-5 via Emergent key (tools + receipt OCR), owner-managed SMTP mailbox (Aruba preset, encrypted password, test send) in app_settings, SDI info card
+
 ## Mocked (demo providers)
-Open banking, SDI, payments, email, WhatsApp, AI assistant
+None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 
 ## Backlog
 - Guide screenshots/videos still show old 'Tesoreria di gruppo' branding (regenerate with tools/guida/cattura.py)
