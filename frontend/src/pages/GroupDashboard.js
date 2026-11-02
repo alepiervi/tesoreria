@@ -23,7 +23,7 @@ export default function GroupDashboard() {
   if (!companies.length) {
     if (user?.is_owner) {
       return <Empty title="Benvenuto in Nureal-Amministrazione" text="Per iniziare crea la tua prima azienda con la partita IVA corretta."
-        action={<Button data-testid="create-first-company-btn" onClick={() => navigate("/impostazioni")}>+ Crea la prima azienda</Button>} />;
+        action={<Button data-testid="create-first-company-btn" onClick={() => navigate("/impostazioni?nuova=1")}>+ Crea la prima azienda</Button>} />;
     }
     return <Empty title="Nessuna azienda" text="Non hai ancora accesso a nessuna azienda. Chiedi al titolare di invitarti." />;
   }
@@ -36,7 +36,7 @@ export default function GroupDashboard() {
 
   return (
     <>
-      <PageHeader title="Vista di gruppo" subtitle={`${data.companies.length} aziende · ${t.accounts_count} conti collegati`} />
+      <PageHeader title="Vista di gruppo" subtitle={`${data.companies.length} ${data.companies.length === 1 ? "azienda" : "aziende"} · ${t.accounts_count} ${t.accounts_count === 1 ? "conto collegato" : "conti collegati"}`} />
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
         <Stat label="Liquidità totale" value={eur(t.balance_cents, { short: true })}

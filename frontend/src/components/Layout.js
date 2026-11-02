@@ -167,7 +167,9 @@ export default function Layout() {
     },
   ].filter(Boolean).map((s) => ({ ...s, items: s.items.filter(Boolean) })).filter((s) => s.items.length);
 
-  const roleText = roles.length === 1
+  const roleText = !companies.length
+    ? "Nessuna azienda"
+    : roles.length === 1
     ? `${ROLE_LABELS[roles[0]]} · ${companies.length} ${companies.length === 1 ? "azienda" : "aziende"}`
     : `${companies.length} aziende · ruoli diversi`;
 

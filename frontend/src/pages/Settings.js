@@ -1,6 +1,6 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge, Button, Card, ErrorBox, Field, Loading, Modal, Notice, PageHeader, useToast } from "../components/ui";
 import { api, errorMessage, setToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -10,7 +10,8 @@ export default function Settings() {
   const { user, companies, can, reload, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(null);
+  const [params] = useSearchParams();
+  const [editing, setEditing] = useState(() => (user.is_owner && params.get("nuova") === "1" ? {} : null));
 
   return (
     <>
@@ -24,7 +25,7 @@ export default function Settings() {
       <CategoryRules />
       {user.is_owner && <Outbox />}
 
-      <Card title="Le tue aziende" actions={user.is_owner && <Button onClick={() => setEditing({})}>+ Nuova azienda</Button>}>
+      <Card title="Le tue aziende" actions={user.is_owner && <Button data-testid="new-company-btn" onClick={() => setEditing({})}>+ Nuova azienda</Button>}>
         <ul className="divide-y divide-soft">
           {companies.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">

@@ -1,0 +1,30 @@
+{
+  "summary": "First-use test with real data, starting from an empty DB that contained only the owner. Backend: added test_first_use_real.py with 18 tests, all passing against the public URL. It covers: demo users get 401; owner login and /auth/me; company creation; empty-state smoke of every GET endpoint scoped to a company or global (no 5xx); manual bank account; statement preview for CSV/CAMT/PDF/CBI and import for CSV/CAMT/PDF, with duplicates detected on re-import; transactions and dashboard KPIs updating; invoice; deadline; reconciliation and auto-reconciliation; invite plus accept. Frontend: login shows Nureal-Amministrazione with no demo buttons and the browser title matches. Demo login is rejected. Owner on an empty DB sees 'Benvenuto in Nureal-Amministrazione', and the create-first-company-btn button goes to /impostazioni. Created 'Test Srl' (P.IVA 01234567890) through '+ Nuova azienda'. Created a manual account through '+ Conto o carta', then imported CSV (7 movements), CAMT (3) and PDF (5) through the UI; the balance and 'Da riconciliare' (15) update. Created an invoice (UI-001) and a deadline (F24); Riconciliazione proposed a match for the F24. Invite link generated in /utenti; accepted it in a clean session and the invited user lands on the dashboard as Amministrazione with 1 company. All 39 routes load with no JS errors, no API 4xx/5xx and no error alerts (/guida redirects to /guida/ and works). In the Guida, every image (9 on the index, 4 on a detail page) loads, and conti-manuali.mp4 loads (readyState 4).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Impostazioni (reached from '+ Crea la prima azienda')", "issues": ["The 'Le tues aziende' card with '+ Nuova azienda' sits below the Notifiche, Regole di categoria and Casella di prova cards. A first-time user lands at the top and must scroll to find it. Suggestion: put 'Le tue aziende' first, or have the CTA open the New-company modal directly (e.g. /impostazioni?nuova=1)."]},
+      {"screen": "Sidebar / Group dashboard with 0 or 1 companies", "issues": ["With 0 companies the sidebar subtitle reads '0 aziende · ruoli diversi'.", "The group dashboard subtitle reads '1 aziende · 0 conti collegati' (should be singular, 'azienda').", "The empty charts show the Y-axis label '0k' repeated 5 times."]},
+      {"screen": "Guida", "issues": ["The guide screenshots and videos still show the old 'Tesoreria di gruppo' branding. This is expected, since the guide was asked to stay intact; just informational."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_first_use_real.py", "/app/test_reports/pytest/pytest_first_use.xml"],
+  "action_items": [
+    "Optional UX: make '+ Crea la prima azienda' open the New-company modal directly, or move 'Le tue aziende' to the top of Impostazioni.",
+    "Optional: fix singular/plural in '1 aziende' and the '0 aziende · ruoli diversi' subtitle.",
+    "Note: REQUIRE_2FA_FOR_PAYMENTS=true, but the owner must not enable 2FA. 'Autorizza pagamento' on deadlines will therefore be blocked for the owner (not tested, because it needs 2FA). Tell the user they must enable 2FA to authorize payments."
+  ],
+  "critical_code_review_comments": [
+    "ensure_owner only runs when the users collection is empty. Changing OWNER_PASSWORD in .env later will not update the existing owner; this is fine and the README should state it.",
+    "/app/memory/test_credentials.md still listed the demo users. Updated it to the owner account."
+  ],
+  "updated_files": ["/app/backend/tests/test_first_use_real.py", "/app/memory/test_credentials.md"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% of tested flows"},
+  "test_credentials": "Owner alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, 2FA not enabled). Invited test users created: test_invitato@example.com / Invitato2026!! (deleted during cleanup), ui_invitato@example.com / InvitatoUi2026!!",
+  "seed_data_creation": "The DB now contains test data: company 'Test Srl' with a manual account 'Intesa Sanpaolo · Conto principale', 15 imported movements, invoice UI-001, deadline 'F24 UI test', and user ui_invitato@example.com (Amministrazione). The API test companies 'TEST_Test Srl' were deleted directly in mongo before the UI run. The main agent planned to wipe the DB anyway.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Real-data mode: SEED_DEMO=false, the owner is created by ensure_owner, and demo users no longer exist. test_first_use_real.py runs against the public URL and creates its own company each run (it does not clean up). Do not change the owner password or enable 2FA on the owner."
+}
