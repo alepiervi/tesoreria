@@ -38,3 +38,11 @@ def test_error_text_hides_numbers_emails_and_ids():
     from app.services.errors import clean_path, clean_text
     assert clean_text("cliente mario@rossi.it importo 12500", 100) == "cliente <email> importo :n"
     assert clean_path("/api/companies/0b6f3c1e-1111-2222-3333-444455556666/invoices") == "/api/companies/:id/invoices"
+
+
+def test_client_messages_keep_only_code_level_text():
+    from app.services.errors import HIDDEN, safe_client_message
+    assert safe_client_message("TypeError: Cannot read properties of undefined (reading 'amount')").endswith("'amount')")
+    assert safe_client_message("x.map is not a function") == "x.map is not a function"
+    assert safe_client_message("TypeError: Cannot read property of 'Rossi Srl'") == f"TypeError: {HIDDEN}"
+    assert safe_client_message("Fattura Rossi non trovata") == HIDDEN

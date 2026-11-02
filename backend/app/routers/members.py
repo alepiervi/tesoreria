@@ -155,6 +155,8 @@ async def create_invite(body: InviteIn, user: dict = Depends(get_current_user)):
     email = body.email.strip().lower()
     if "@" not in email:
         raise HTTPException(400, "Email non valida.")
+    if await get_db().users.count_documents({"email": email, "is_developer": True}) > 0:
+        raise HTTPException(400, "L'account sviluppatore non può avere accesso ai dati delle aziende.")
     token = new_invite_token()
     invite = {
         "id": new_id(), "email": email, "name": body.name.strip(), "role": body.role,
@@ -226,8 +228,8 @@ async def accept_invite(token: str, body: AcceptIn):
     db = get_db()
     user = await db.users.find_one({"email": invite["email"]})
     owner_invite = invite.get("owner_invite", False)
-    if user and user.get("is_developer") and owner_invite:
-        raise HTTPException(400, "L'account sviluppatore non può diventare titolare.")
+    if user and user.get("is_developer"):
+        raise HTTPException(400, "L'account sviluppatore non può avere accesso ai dati delle aziende.")
     if user:
         if not verify_password(body.password, user["password_hash"]):
             raise HTTPException(401, "Password non corretta per questo account.")

@@ -65,4 +65,23 @@ async def record_server_error(request, exc: BaseException):
 
 async def record_client_error(message: str, stack: str, path: str):
     lines = [clean_text(line.strip(), 200) for line in (stack or "").splitlines()[1:9] if line.strip()]
-    await _store("browser", "Errore pagina", clean_text(message, 300), clean_path(path), lines)
+    await _store("browser", "Errore pagina", safe_client_message(message), clean_path(path), lines)
+
+
+# Messaggi del browser ammessi solo se "di codice" (nomi di variabili); altrimenti resta il tipo di errore
+_JS_SAFE = [re.compile(p) for p in (
+    r"^(?:\w*Error: )?Cannot read propert(?:y|ies) of (?:undefined|null)(?: \(reading '[\w$]+'\))?$",
+    r"^(?:\w*Error: )?[\w$.]+(?:\(\.\.\.\))? is not (?:a function|defined|iterable|a constructor)$",
+    r"^(?:\w*Error: )?Minified React error #\d+.*$",
+    r"^(?:\w*Error: )?Loading (?:CSS )?chunk [\w-]+ failed.*$",
+    r"^(?:\w*Error: )?Maximum call stack size exceeded$",
+    r"^Script error\.?$",
+)]
+
+
+def safe_client_message(message: str) -> str:
+    msg = (message or "").strip()[:300]
+    if any(p.match(msg) for p in _JS_SAFE):
+        return msg
+    kind = re.match(r"^(?:Uncaught )?(\w*Error)\b", msg)
+    return f"{kind.group(1)}: {HIDDEN}" if kind else HIDDEN

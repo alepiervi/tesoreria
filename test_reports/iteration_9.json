@@ -1,0 +1,36 @@
+{
+  "summary": "Tested the Developer (Sviluppatore) role end to end, on the backend through the public URL and in the UI with Playwright. Everything requested works. 1) Developer login lands on /sviluppatore. The sidebar shows only the Sviluppatore, Aiuto and Account sections, with the subtitle 'Sviluppatore · nessun accesso ai dati'. 2) All 8 data URLs redirect to /sviluppatore. 3) Settings shows only 2FA, Cambia password and Sicurezza della sessione. 4) Backend isolation: GET /companies returns [], POST /companies 403, /audit 403, /members 403, /outbox 403. After the titolare created a company with an invoice and a bank account, 30+ company-scoped and id-scoped endpoints (transactions, invoices, dashboard, export, journal/accounting/parties export, ledger, vat, invoice xml/accounting/delete, reports/monthly, forecast, deadlines, bank sync, notes, invites) all return 404/403 to the developer. The aggregate endpoints (dashboard/group, forecast, receivables, loans, intercompany, etc.) return empty data with no leak. 5) The Stato del sistema page shows DB, uptime, errors, titolare warning and link, demo providers and jobs, with no company or user data. 6) Owner invite: self-invite rejected (also with uppercase and spaces), link and copy button shown, pending list and cancel work. 7) The invite page shows the 'Titolare del gruppo' text. Accepting creates an owner with the full menu, who can create a company. 8) A second owner invite accepted after the company exists gets titolare on that company. A reused token returns 404. 9) client-errors: path sanitized to /fatture/:id, count went to 2 after 2 posts, emails and numbers masked, no token gives 401. 'Segna risolto' and 'Elimina i risolti' work in the UI. Titolare gets 403 on all /developer/* endpoints, and the titolare sidebar has no Sviluppatore section. One UI bug fixed: the Invito titolare inputs had no visible box.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/invites/token/{token}/accept (normal invite)", "issue": "A titolare can invite the developer's email as a normal collaborator, and the developer can accept it. Memberships are then created for the developer. They grant no access, because get_memberships and require block the developer, so the data stays safe. But the DB ends up inconsistent, and on the next restart ensure_developer sees the memberships and bumps token_version, which logs the developer out. Fix: reject normal invites and acceptances for is_developer users (create_invite and accept_invite)."},
+      {"endpoint": "POST /api/client-errors", "issue": "Browser error messages are always stored. They are masked only for emails and numbers, while server errors are hidden unless they are in SAFE_MESSAGE_TYPES. A browser message such as \"Cannot read property of 'Rossi Srl'\" could show a company name to the developer. Consider the same safe-type rule for client errors: keep only the error name prefix (e.g. 'TypeError'), or apply the same hiding."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "pages/developer/OwnerInvite.js", "issue": "Email, name and link inputs had no className='input', so they showed as invisible borderless fields on the white card. FIXED by the testing agent (added className='input').", "selector": "[data-testid='owner-invite-email']", "priority": "MEDIUM (fixed)"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Invito titolare", "issues": ["After an invite is cancelled, the 'Link creato' box still shows the link of the cancelled invite. Clear it when the matching invite is cancelled.", "Notice tone='green' is not supported by the Notice component, so it falls back to blue (cosmetic)."]}
+    ]
+  },
+  "test_report_links": ["/tmp/dev_api1.py", "/tmp/dev_api2.py", "/tmp/dev_api3.py"],
+  "action_items": [
+    "Optional: block normal (non-owner) invites to the developer email, or skip creating memberships for the developer on accept",
+    "Optional: apply the safe-message policy to browser errors in record_client_error",
+    "Optional: clear the shown link in OwnerInvite after the matching invite is cancelled"
+  ],
+  "critical_code_review_comments": [
+    "Defense in depth is good: get_memberships returns [] and require() returns 404 for is_developer, so even manual memberships give no access (verified live).",
+    "Endpoints with required query params return 422 before the permission check. No data leaks, it is only validation order."
+  ],
+  "updated_files": ["/app/frontend/src/pages/developer/OwnerInvite.js"],
+  "success_rate": {"backend": "100% of the requested checks (the 5 failures in my first run were missing query params, not access issues; re-run with params gave 404)", "frontend": "100% after the input styling fix"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / Matteo20!! (unchanged, no 2FA). Created owners: nuovo.titolare@example.com / Titolare2026!, secondo.titolare@example.com / Titolare2026!",
+  "seed_data_creation": "Owners nuovo.titolare@example.com and secondo.titolare@example.com, company TEST_Alfa Srl with 1 invoice and 1 manual bank account, a client error ('TypeError x'), a lettura invite to the developer's email that the developer accepted, which left a stray membership. The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Developer role fully verified. Test scripts are in /tmp (not in /app/backend/tests, as requested). Offline tests/test_developer.py passes (4 tests). The backend FRONTEND_URL (7f4a3300...) differs from the frontend REACT_APP_BACKEND_URL (gestione-tesoreria...), and both hosts respond."
+}

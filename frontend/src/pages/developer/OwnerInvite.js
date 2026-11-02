@@ -9,7 +9,7 @@ export default function DevOwnerInvite() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [link, setLink] = useState("");
+  const [link, setLink] = useState(null);
   const [pending, setPending] = useState([]);
   const toast = useToast();
 
@@ -24,7 +24,7 @@ export default function DevOwnerInvite() {
     setError("");
     try {
       const r = await api.post("/developer/owner-invites", { email, name });
-      setLink(r.data.invite_url);
+      setLink({ id: r.data.id, url: r.data.invite_url });
       setEmail("");
       setName("");
       load();
@@ -36,12 +36,13 @@ export default function DevOwnerInvite() {
   };
 
   const copy = async () => {
-    await navigator.clipboard.writeText(link).catch(() => {});
+    await navigator.clipboard.writeText(link.url).catch(() => {});
     toast("Link copiato");
   };
 
   const cancel = async (id) => {
     await api.delete(`/developer/owner-invites/${id}`);
+    if (link?.id === id) setLink(null);
     load();
   };
 
@@ -53,18 +54,18 @@ export default function DevOwnerInvite() {
           <form onSubmit={submit} className="flex flex-col gap-4" data-testid="owner-invite-form">
             <ErrorBox>{error}</ErrorBox>
             <Field label="Email del titolare" htmlFor="owner-email">
-              <input id="owner-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} data-testid="owner-invite-email" />
+              <input id="owner-email" type="email" className="input" required value={email} onChange={(e) => setEmail(e.target.value)} data-testid="owner-invite-email" />
             </Field>
             <Field label="Nome (facoltativo)" htmlFor="owner-name">
-              <input id="owner-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="owner-invite-name" />
+              <input id="owner-name" className="input" value={name} onChange={(e) => setName(e.target.value)} data-testid="owner-invite-name" />
             </Field>
             <div><Button type="submit" loading={busy} data-testid="owner-invite-submit">Crea link di invito</Button></div>
           </form>
           {link && (
             <div className="mt-4 flex flex-col gap-2" data-testid="owner-invite-link-box">
-              <Notice tone="green">Link creato. Invialo al titolare: aprendolo crea il suo account e prende in carico tutte le aziende.</Notice>
+              <Notice>Link creato. Invialo al titolare: aprendolo crea il suo account e prende in carico tutte le aziende.</Notice>
               <div className="flex gap-2">
-                <input readOnly value={link} className="flex-1 font-mono text-xs" data-testid="owner-invite-link" onFocus={(e) => e.target.select()} />
+                <input readOnly value={link.url} className="input flex-1 font-mono text-xs" data-testid="owner-invite-link" onFocus={(e) => e.target.select()} />
                 <Button variant="secondary" onClick={copy} data-testid="owner-invite-copy">Copia</Button>
               </div>
             </div>
