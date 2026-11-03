@@ -41,7 +41,7 @@ def _months_back(n: int) -> list[str]:
 def _totals(rows: list[dict]) -> dict:
     i = sum(r["input_tokens"] for r in rows)
     o = sum(r["output_tokens"] for r in rows)
-    return {"requests": len(rows), "input_tokens": i, "output_tokens": o, "cost_usd": round(cost_usd(i, o), 2)}
+    return {"requests": len(rows), "input_tokens": i, "output_tokens": o, "cost_usd": round(cost_usd(i, o), 4)}
 
 
 async def summary(month: str | None = None) -> dict:
@@ -53,7 +53,7 @@ async def summary(month: str | None = None) -> dict:
     by_kind, by_user = {}, {}
     for r in current:
         by_kind.setdefault(r["kind"], []).append(r)
-        by_user.setdefault(r.get("user_name") or "automatico", []).append(r)
+        by_user.setdefault(r.get("user_id") or "automatico", []).append(r)
     budget = settings.ai_monthly_budget_usd
     total = _totals(current)
     return {
@@ -62,7 +62,8 @@ async def summary(month: str | None = None) -> dict:
         "budget_usd": budget, "budget_used_pct": round(total["cost_usd"] / budget * 100) if budget else None,
         "by_kind": sorted(({"kind": k, "label": KIND_LABELS.get(k, k), **_totals(v)} for k, v in by_kind.items()),
                           key=lambda x: -x["cost_usd"]),
-        "by_user": sorted(({"name": k, **_totals(v)} for k, v in by_user.items()), key=lambda x: -x["cost_usd"]),
+        "by_user": sorted(({"name": max(v, key=lambda r: r["at"]).get("user_name") or "automatico", **_totals(v)}
+                           for v in by_user.values()), key=lambda x: -x["cost_usd"]),
         "history": [{"month": m, **_totals([r for r in rows if r["month"] == m])} for m in reversed(months)],
         "prices": {"input_per_mtok": settings.ai_price_in_per_mtok, "output_per_mtok": settings.ai_price_out_per_mtok},
         "updated_at": now_iso(),

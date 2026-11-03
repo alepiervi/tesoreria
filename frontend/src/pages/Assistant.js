@@ -76,9 +76,9 @@ export default function Assistant() {
         </div>
         <form onSubmit={(e) => { e.preventDefault(); ask(); }} className="flex flex-wrap gap-2 border-t border-line p-4">
           <label htmlFor="ask" className="sr-only">Domanda</label>
-          <input id="ask" className="input min-w-[220px] flex-1" placeholder="Es. quanto abbiamo speso di utenze il mese scorso?"
+          <input id="ask" data-testid="assistant-input" className="input min-w-[220px] flex-1" placeholder="Es. quanto abbiamo speso di utenze il mese scorso?"
             value={question} onChange={(e) => setQuestion(e.target.value)} disabled={!status?.enabled} />
-          <Button type="submit" loading={busy} disabled={!question.trim() || !status?.enabled}>Chiedi</Button>
+          <Button type="submit" loading={busy} disabled={!question.trim() || !status?.enabled} data-testid="assistant-ask-btn">Chiedi</Button>
         </form>
       </Card>
       <ErrorBox>{error}</ErrorBox>

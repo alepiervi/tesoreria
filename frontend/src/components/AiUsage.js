@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { Badge, Card, ErrorBox, Loading } from "./ui";
 
-const usd = (v) => `$ ${v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (v) => (v > 0 && v < 0.01 ? "< $ 0,01" : `$ ${v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 const num = (v) => v.toLocaleString("it-IT");
 const monthLabel = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 const shortMonth = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString("it-IT", { month: "short" });
@@ -21,8 +21,8 @@ function History({ history }) {
     <div className="flex h-28 items-end gap-2" data-testid="ai-usage-history">
       {history.map((h) => (
         <div key={h.month} className="flex flex-1 flex-col items-center gap-1">
-          <span className="text-[11px] text-muted">{h.cost_usd ? usd(h.cost_usd) : ""}</span>
-          <div className="w-full rounded-t-md bg-accent/80" style={{ height: `${Math.max(2, (h.cost_usd / max) * 64)}px` }} />
+          <span className="text-[11px] text-muted">{h.requests ? usd(h.cost_usd) : ""}</span>
+          <div className={`w-full rounded-t-md ${h.requests ? "bg-accent/80" : "bg-soft"}`} style={{ height: `${h.requests ? Math.max(4, (h.cost_usd / max) * 64) : 2}px` }} />
           <span className="text-[11px] capitalize text-muted">{shortMonth(h.month)}</span>
         </div>
       ))}
@@ -35,6 +35,7 @@ export function AiUsage() {
   const [month, setMonth] = useState("");
   const [error, setError] = useState("");
   const load = useCallback((m) => {
+    setError("");
     api.get("/settings/ai-usage", { params: m ? { month: m } : {} })
       .then((r) => { setData(r.data); setMonth(r.data.month); })
       .catch((e) => setError(errorMessage(e)));
@@ -86,7 +87,7 @@ export function AiUsage() {
                 {data.by_kind.map((k) => (
                   <li key={k.kind} className="flex flex-col gap-1 text-sm">
                     <div className="flex justify-between"><span>{k.label} <span className="text-muted">· {k.requests}</span></span><span className="tabular-nums">{usd(k.cost_usd)}</span></div>
-                    <Bar pct={t.cost_usd ? (k.cost_usd / t.cost_usd) * 100 : 0} />
+                    <Bar pct={t.cost_usd ? Math.max(2, (k.cost_usd / t.cost_usd) * 100) : 2} />
                   </li>
                 ))}
               </ul>

@@ -1,0 +1,24 @@
+{
+  "summary": "Tested the 'Consumo dell'assistente' AI usage feature in real mode against the public URL, using 3 AI calls in total. Setup through the API: the developer enrolled in 2FA (pyotp), then created an owner invite. The owner 'Mario Titolare' accepted it and enrolled 2FA, then created the company 'TEST Nureal 17 Srl' and invited an amministrazione collaborator, who also enrolled. Backend: 6 live pytest checks in /tmp/iter17/test_iter17.py, 6/6 passed, run before and after the AI calls. Collaborator and developer get 403, no token gets 401. The response has 6 months and 6 history entries, ending with the current month. The previous month returns zero usage. An invalid month or one older than 6 months falls back to the current month. The response never contains the question text. In MongoDB the ai_usage documents hold only id, at, month, kind, user_id, user_name, tokens and model, with no content. AI flow: question 1 was asked through the Assistente UI and question 2 through the API (3.9s). A PNG receipt uploaded to Scontrini was read automatically (BAR CENTRALE SRL, 2,70, IVA 0,24). Afterwards the totals were 3 requests, 7857/590 tokens and $0.03. Per tipo showed 'Domande all'assistente · 2' ($0.03) and 'Lettura scontrini e documenti · 1'. Per persona showed 'Mario Titolare · 3'. Frontend (Playwright, token injected into localStorage): before any usage the owner's card showed $ 0,00, 0 requests, 'Nessun utilizzo in questo mese.', 6 history bars, 6 month options and the Emergent note (Profilo → Manage plan → Universal Key). After reloading, cost $ 0,03, requests 3, by-kind, by-user and the current-month history bar all appeared. Choosing October 2026 in the month selector showed $ 0,00, 0 and the empty message; switching back showed 3 again. The card is not shown to the collaborator or the developer. The mobile layout (390px) is fine.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "GET /api/settings/ai-usage", "issue": "cost_usd is rounded to 2 decimals for each row. A real receipt read (438/51 tokens, about $0.002) appears as $0.00 with an empty bar, so a receipt read looks free. Suggest returning unrounded or 4-decimal values and letting the UI show '< $ 0,01'."},
+    {"endpoint": "services/ai_usage.summary", "issue": "by_user groups by user_name instead of user_id. Two users with the same name would be merged, and a renamed user would be split. Suggest grouping by user_id and showing the latest name."}
+  ]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [
+    {"screen": "Impostazioni > Consumo dell'assistente", "issues": ["Rows with very small usage show '$ 0,00' and no bar, and the history label is empty when the rounded cost is 0, even when there were requests.", "AiUsage.load never clears error: after one failed month change the card stays on the error box until the page is reloaded."]},
+    {"screen": "Assistente", "issues": ["The question input (#ask) and the 'Chiedi' button have no data-testid (pre-existing)."]}
+  ]},
+  "test_report_links": ["/tmp/iter17/test_iter17.py", "/tmp/iter17/setup.py", "/tmp/iter17/ai_calls.py"],
+  "action_items": ["Optional: show sub-cent costs (e.g. '< $ 0,01') instead of $ 0,00 for non-zero usage", "Optional: group by_user by user_id", "Optional: clear the error state on reload in AiUsage; add data-testid to the Assistente input and button"],
+  "critical_code_review_comments": [
+    "The ContextVar current_user is set inside the async get_current_user dependency, and it does reach the endpoint: the live record has user_name 'Mario Titolare'. However, AI calls from background jobs or routes with a sync dependency would be recorded as 'automatico'. That is acceptable but should be documented.",
+    "ai_usage.summary loads every row for 6 months with to_list(100000). A Mongo $group aggregation would scale better."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore], now enrolled in 2FA. Owner test_owner17_105943@example.com and amministrazione test_amm17_105943@example.com, password TestPass12345!x. TOTP secrets and tokens are in /tmp/iter17/state.json.",
+  "seed_data_creation": "Created the owner, the collaborator, the company 'TEST Nureal 17 Srl', 1 receipt document and 3 ai_usage rows (2 domanda, 1 documento). The assistant_log holds 2 questions. The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Live scripts are in /tmp/iter17. setup.py needs env DEV_PW and REACT_APP_BACKEND_URL and assumes the developer has not enrolled 2FA. For UI tests, inject the access_token into localStorage 'tesoreria_token'. Nothing was added to /app/backend/tests or test_reports/pytest. AI calls used: 3."
+}
