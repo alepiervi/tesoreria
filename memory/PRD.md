@@ -27,6 +27,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: Real mode: BANKING/SDI/PAYMENTS/WHATSAPP/EMAIL=none (automatic features hidden, never fake data), manual payment authorization (da pagare + authorized_at, then mark-done), AI=Claude sonnet-5-5 via Emergent key (tools + receipt OCR), owner-managed SMTP mailbox (Aruba preset, encrypted password, test send) in app_settings, SDI info card
 
+- 2026-06: AI usage tracking (ai_usage: tokens only, no content) + owner card "Consumo dell'assistente" in Impostazioni (month cost estimate, by kind/person, 6-month history, optional AI_MONTHLY_BUDGET_USD)
+
 ## Mocked (demo providers)
 None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 

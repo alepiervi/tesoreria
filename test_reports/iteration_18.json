@@ -1,0 +1,21 @@
+{
+  "summary": "Follow-up retest of the AI usage card fixes against the public URL, using 1 real AI call. All 5 fixes passed. Setup: the DB was NOT fully wiped. The iteration 17 developer (2FA already enrolled), the iteration 17 owner, its collaborator, the company 'TEST Nureal 17 Srl' and 3 iteration 17 ai_usage rows were still there. The developer logged in with the iteration 17 TOTP secret and created an owner invite. The new owner 'Titolare Reale' accepted it, enrolled 2FA with pyotp and created 'TEST Nureal 18 Srl'. The 3 old ai_usage rows (Mario Titolare) were deleted so the check would be clean. Then 2 rows were inserted for 2026-11 with the new owner's user_id: a documento row, 438/51 tokens, 'Vecchio Nome', at 2026-01-01; and a domanda row, 3000/100 tokens, 'Nuovo Nome', at 2026-11-02. API: by_kind gives documento 0.0021 and domanda 0.0105, and the total is 0.0126 (4 decimals). by_user has ONE entry, 'Nuovo Nome', with 2 requests. UI (Impostazioni): the cost shows $ 0,01 with 2 requests. The document row shows '< $ 0,01' with a visible bar (16.7%, about 98px). Per persona shows the single row 'Nuovo Nome · 2'. The November history label shows '$ 0,01' with a 64px bar. An extra sub-cent row was inserted for 2026-10. That history label showed '< $ 0,01' with a bar taller than 4px. Choosing October in the month selector showed '< $ 0,01' and 1 request. Assistente: the question was typed into assistant-input and sent with assistant-ask-btn, both found by data-testid. The answer came back correctly ('Hai 2 aziende: ...'). Afterwards requests went from 2 to 3 and the cost to $ 0,02. Per persona still showed one row, now with the latest name 'Titolare Reale · 3', which confirms grouping by user_id. The error-clearing fix in AiUsage.load (setError('') before each request) was checked in code review only; it was not triggered live.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/tmp/iter18/setup.py"],
+  "action_items": [
+    "The DB was not wiped before this test: iteration 17 users, company and 2FA enrollment were still there. Wipe it fully as planned. It now also holds iteration 18 data."
+  ],
+  "critical_code_review_comments": [
+    "AiUsage.js by_user list uses key={u.name}. Grouping is now by user_id, so two different users with the same name would produce duplicate React keys. Return user_id in by_user and use it as the key (minor).",
+    "AiUsage error branch replaces the whole card, including the month selector. After an error, the user cannot choose another month without reloading the page. Consider rendering ErrorBox inside the card while keeping the selector (minor).",
+    "Every titolare sees the global ai_usage across all owners: the new owner also saw the other owner's company and usage. That is fine if there is one owner per installation, but worth confirming."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Developer alessandro.piervincenzi@gmail.com / [password sviluppatore], with the 2FA secret in /tmp/iter17/state.json. New owner test_owner18_*@example.com, password TestPass12345!x, token in /tmp/iter18/state.json.",
+  "seed_data_creation": "Owner 'Titolare Reale', company 'TEST Nureal 18 Srl' and 3 TEST_ ai_usage rows (2 in 2026-11, 1 in 2026-10), plus 1 real domanda row from the UI question. The 3 iteration 17 ai_usage rows were deleted. Nothing was written to /app/backend/tests or test_reports/pytest.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Scripts are in /tmp/iter18. Inject the token into localStorage 'tesoreria_token' for UI tests. The server date is 2026-11-03. AI calls used: 1."
+}
