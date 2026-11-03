@@ -6,6 +6,7 @@ from .. import audit
 from ..config import settings
 from ..deps import get_current_user, require_owner
 from ..integrations.messaging import send_email
+from ..services import ai_usage
 from ..services.app_settings import email_mode, public_email_config, save_email_config
 from ..utils import now_iso
 from ..db import get_db
@@ -42,6 +43,11 @@ async def features() -> dict:
 def owner(user: dict = Depends(get_current_user)) -> dict:
     require_owner(user)
     return user
+
+
+@router.get("/settings/ai-usage")
+async def get_ai_usage(month: str | None = None, user: dict = Depends(owner)):
+    return await ai_usage.summary(month)
 
 
 @router.get("/settings/email")

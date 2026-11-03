@@ -24,6 +24,8 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Utente non attivo.")
     if payload.get("ver", 0) != user.get("token_version", 0):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessione non più valida.")
+    from .services.ai_usage import current_user
+    current_user.set({"id": user["id"], "name": user.get("name"), "email": user.get("email")})
     return clean(user)
 
 

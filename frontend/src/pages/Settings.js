@@ -1,3 +1,4 @@
+import { AiUsage } from "../components/AiUsage";
 import { EmailSettings, SdiInfo } from "../components/IntegrationSettings";
 import { RecoveryCodes, TotpSetup } from "../components/TwoFactorSetup";
 import { useCallback, useEffect, useState } from "react";
@@ -34,6 +35,7 @@ export default function Settings() {
           <SdiInfo />
         </div>
       )}
+      {user.is_owner && <AiUsage />}
       {user.is_owner && <Outbox />}
 
       {!user.is_developer && <Card title="Le tue aziende" actions={user.is_owner && <Button data-testid="new-company-btn" onClick={() => setEditing({})}>+ Nuova azienda</Button>}>

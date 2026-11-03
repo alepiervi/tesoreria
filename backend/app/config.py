@@ -61,6 +61,10 @@ class Settings:
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
     emergent_llm_key: str = os.environ.get("EMERGENT_LLM_KEY", "")
     ai_model: str = os.environ.get("AI_MODEL", "claude-sonnet-5-5")
+    # Prezzi per milione di token (USD) usati solo per stimare il consumo; budget mensile facoltativo (0 = nessuno)
+    ai_price_in_per_mtok: float = float(os.environ.get("AI_PRICE_IN_PER_MTOK", "3"))
+    ai_price_out_per_mtok: float = float(os.environ.get("AI_PRICE_OUT_PER_MTOK", "15"))
+    ai_monthly_budget_usd: float = float(os.environ.get("AI_MONTHLY_BUDGET_USD", "0"))
 
     # Backup automatico del database (cartella sul server; vuoto = disattivato)
     backup_dir: str = os.environ.get("BACKUP_DIR", "")

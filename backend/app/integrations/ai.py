@@ -20,6 +20,7 @@ import httpx
 from ..config import settings
 from ..services.assistant_tools import TOOL_SPECS, Tools, anthropic_tools, period_from_text
 from ..services.categories import CATEGORIES
+from ..services import ai_usage
 from ..utils import new_id, today
 
 logger = logging.getLogger("tesoreria.ai")
@@ -309,14 +310,17 @@ class EmergentClaudeAI(AnthropicAI):
         return LlmChat(api_key=settings.emergent_llm_key, session_id=new_id(), system_message=system) \
             .with_model("anthropic", settings.ai_model)
 
-    async def _ask_text(self, prompt: str, data: bytes | None = None, mime: str | None = None) -> str:
+    async def _ask_text(self, prompt: str, data: bytes | None = None, mime: str | None = None,
+                        kind: str = "documento") -> str:
         from emergentintegrations.llm.chat import FileContent, ImageContent, UserMessage
         files = []
         if data is not None:
             b64 = base64.b64encode(data).decode()
             files = [ImageContent(b64)] if (mime or "").startswith("image/") else [FileContent(mime or "application/pdf", b64)]
         try:
-            return await self._chat().send_message(UserMessage(text=prompt, file_contents=files)) or ""
+            resp = await self._chat().send_message_with_tools(UserMessage(text=prompt, file_contents=files))
+            await ai_usage.record(kind, resp.usage.input_tokens, resp.usage.output_tokens)
+            return resp.content or ""
         except Exception as e:  # noqa: BLE001
             logger.warning("Errore AI: %s", type(e).__name__)
             raise RuntimeError("Il servizio dell'assistente non ha risposto correttamente.") from e
@@ -325,7 +329,7 @@ class EmergentClaudeAI(AnthropicAI):
         # Usato dai metodi ereditati: un solo messaggio utente con testo ed eventuale file
         content = payload["messages"][-1]["content"]
         if isinstance(content, str):
-            text = await self._ask_text(content)
+            text = await self._ask_text(content, kind="abbinamento")
         else:
             prompt = next(b["text"] for b in content if b["type"] == "text")
             src = next((b["source"] for b in content if b["type"] in {"image", "document"}), None)
@@ -346,10 +350,18 @@ class EmergentClaudeAI(AnthropicAI):
         chat = self._chat(system).with_tools(functions, tool_choice="auto")
         names = {n for n, _, _ in TOOL_SPECS}
         used = []
+        tokens = [0, 0]
+
+        def count(r):
+            tokens[0] += r.usage.input_tokens
+            tokens[1] += r.usage.output_tokens
+
         try:
             resp = await chat.send_message_with_tools(UserMessage(text=question))
+            count(resp)
             for _ in range(6):
                 if not resp.tool_calls:
+                    await ai_usage.record("domanda", *tokens)
                     return {"answer": (resp.content or "").strip() or "Non ho una risposta.", "tools": used}
                 for tc in resp.tool_calls:
                     used.append(tc.name)
@@ -362,9 +374,12 @@ class EmergentClaudeAI(AnthropicAI):
                         result = json.dumps({"errore": str(e)})
                     chat.add_tool_result(tc.id, result)
                 resp = await chat.send_message_with_tools()
+                count(resp)
         except Exception as e:  # noqa: BLE001
+            await ai_usage.record("domanda", *tokens)
             logger.warning("Errore AI: %s", type(e).__name__)
             raise RuntimeError("Il servizio dell'assistente non ha risposto correttamente.") from e
+        await ai_usage.record("domanda", *tokens)
         return {"answer": "La domanda richiede troppi passaggi: prova a renderla più precisa.", "tools": used}
 
 
