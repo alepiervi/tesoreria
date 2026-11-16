@@ -89,6 +89,55 @@ const MAP_FIELDS = [
   ["balance", "Saldo", false],
 ];
 
+/** Correzione a mano del saldo di un conto manuale. */
+export function BalanceModal({ account, onClose, onDone }) {
+  const [balance, setBalance] = useState("");
+  const [date, setDate] = useState(todayIso());
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!account) return;
+    setBalance((Math.abs(account.balance_cents) / 100 * (account.balance_cents < 0 && account.account_type !== "carta" ? -1 : 1)).toLocaleString("it-IT", { minimumFractionDigits: 2 }));
+    setDate(todayIso());
+    setError("");
+  }, [account]);
+
+  if (!account) return null;
+
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await api.put(`/bank-accounts/${account.id}/balance`, { balance, balance_date: date });
+      onDone(res.data);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Correggi saldo · ${account.bank_name} · ${account.label}`}
+      footer={<><Button variant="secondary" onClick={onClose}>Annulla</Button><Button loading={busy} onClick={save} disabled={!balance.trim()} data-testid="balance-save">Salva saldo</Button></>}>
+      <div className="flex flex-col gap-4" data-testid="balance-modal">
+        <ErrorBox>{error}</ErrorBox>
+        <p className="text-sm text-muted">Saldo attuale: <Amount cents={account.balance_cents} /></p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={account.account_type === "carta" ? "Debito della carta" : "Saldo giusto del conto"} htmlFor="bal-new" hint="Usa il meno per un saldo negativo, es. -1.250,00">
+            <input id="bal-new" inputMode="decimal" className="input" value={balance} onChange={(e) => setBalance(e.target.value)} data-testid="balance-input" />
+          </Field>
+          <Field label="Alla data" htmlFor="bal-date">
+            <input id="bal-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} data-testid="balance-date-input" />
+          </Field>
+        </div>
+        <Notice>I prossimi estratti che caricherai aggiungeranno i loro movimenti a questo saldo.</Notice>
+      </div>
+    </Modal>
+  );
+}
+
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 const rowCounts = (r, include) => !r.duplicate && (!r.similar || include.has(r.index));

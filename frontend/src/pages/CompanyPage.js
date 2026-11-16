@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ImportStatementModal, ImportsHistoryModal, ManualAccountModal, plural } from "../components/BankImport";
+import { BalanceModal, ImportStatementModal, ImportsHistoryModal, ManualAccountModal, plural } from "../components/BankImport";
 import { ForecastChart, MonthlyChart, forecastNote } from "../components/Charts";
 import ScenarioModal from "../components/ScenarioModal";
 import { Amount, Badge, Button, Card, ErrorBox, Field, Loading, Modal, Notice, PageHeader, Stat, useToast } from "../components/ui";
@@ -24,6 +24,7 @@ export default function CompanyPage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [importFor, setImportFor] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
+  const [balanceFor, setBalanceFor] = useState(null);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [openWeek, setOpenWeek] = useState(null);
 
@@ -135,6 +136,7 @@ export default function CompanyPage() {
                       {canBanks && !off && (
                         <div className="flex flex-wrap gap-2">
                           <Button variant="secondary" className="min-h-[40px]" onClick={() => setImportFor(a)} data-testid={`import-statement-${a.id}`}>{a.account_type === "carta" ? "Importa estratto carta" : "Importa estratto conto"}</Button>
+                          {a.provider === "manuale" && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => setBalanceFor(a)} data-testid={`balance-edit-${a.id}`}>Correggi saldo</Button>}
                           {a.last_import_at && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => setHistoryFor(a)} data-testid={`import-history-btn-${a.id}`}>Caricamenti</Button>}
                           {bankAuto && a.account_type !== "carta" && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => { setConvert(a); setConnectOpen(true); }}>Rendi automatico</Button>}
                         </div>
@@ -250,10 +252,16 @@ export default function CompanyPage() {
       <ScenarioModal open={scenarioOpen} companyId={companyId} title={company.name} onClose={() => setScenarioOpen(false)} />
       <ManualAccountModal open={manualOpen} companyId={companyId} accounts={data?.accounts || []} onClose={() => setManualOpen(false)}
         onDone={(acc) => { setManualOpen(false); toast("Conto aggiunto: ora importa l'estratto conto"); load(); setImportFor(acc); }} />
+      <BalanceModal account={balanceFor} onClose={() => setBalanceFor(null)}
+        onDone={() => {
+          setBalanceFor(null);
+          toast("Saldo aggiornato");
+          load();
+        }} />
       <ImportsHistoryModal account={historyFor} onClose={() => setHistoryFor(null)}
         onDone={(r) => {
           setHistoryFor(null);
-          toast(`Caricamento annullato: ${plural(r.removed, "movimento tolto", "movimenti tolti")}`);
+          toast(`Caricamento annullato: ${plural(r.removed, "movimento tolto", "movimenti tolti")}${r.check_balance ? ". Controlla il saldo con «Correggi saldo»" : ""}`);
           load();
           refreshCounts();
         }} />

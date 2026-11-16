@@ -84,3 +84,22 @@ def test_first_import_without_opening_counts_only_after_typed_balance(client, ow
     r = client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner,
                     files={"file": ("m.xls", html.encode(), "application/vnd.ms-excel")}).json()
     assert r["imported"] == 2 and r["account"]["balance_cents"] == 500000 - 30050
+
+
+def test_correct_balance_and_legacy_undo_keeps_balance(client, owner):
+    acc = new_account(client, owner, balance="1.000")
+    r = client.put(f"/api/bank-accounts/{acc['id']}/balance", headers=owner, json={"balance": "-2.500,40", "balance_date": "2026-03-31"})
+    assert r.status_code == 200 and r.json()["balance_cents"] == -250040 and r.json()["balance_date"] == "2026-03-31"
+    assert client.put(f"/api/bank-accounts/{acc['id']}/balance", headers=owner, json={"balance": "abc"}).status_code == 400
+    client.put(f"/api/bank-accounts/{acc['id']}/balance", headers=owner, json={"balance": "12.516,75"})
+    client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner,
+                files={"file": ("m.xls", HTML_XLS.encode(), "application/vnd.ms-excel")})
+    rec = client.get(f"/api/bank-accounts/{acc['id']}/imports", headers=owner).json()[0]
+    from app.db import get_db  # simula un caricamento della versione precedente (senza saldo di partenza)
+
+    async def legacy():
+        await get_db().statement_imports.update_one({"id": rec["id"]}, {"$unset": {"balance_before_cents": "", "balance_before_date": ""}})
+    client.portal.call(legacy)
+    before = next(a for a in client.get(f"/api/companies/{acc['company_id']}/bank-accounts", headers=owner).json() if a["id"] == acc["id"])
+    r = client.delete(f"/api/statement-imports/{rec['id']}", headers=owner).json()
+    assert r["check_balance"] is True and r["account"]["balance_cents"] == before["balance_cents"]

@@ -196,6 +196,33 @@ async def disconnect(account_id: str, user: dict = Depends(get_current_user)):
 
 # ---------- Conti manuali ed estratti conto ----------
 
+class BalanceIn(BaseModel):
+    balance: str
+    balance_date: str = ""
+
+
+@router.put("/bank-accounts/{account_id}/balance")
+async def set_balance(account_id: str, body: BalanceIn, user: dict = Depends(get_current_user)):
+    account, _ = await load("bank_accounts", account_id, user, "manage_banks")
+    if account.get("provider") != MANUAL:
+        raise HTTPException(400, "Il saldo dei conti collegati arriva dalla banca.")
+    try:
+        balance = to_cents(body.balance)
+    except ValueError:
+        raise HTTPException(400, "Saldo non valido.")
+    if account.get("account_type") == "carta":
+        balance = -abs(balance)
+    balance_date = body.balance_date or today().isoformat()
+    try:
+        parse_date(balance_date)
+    except ValueError:
+        raise HTTPException(400, "Data non valida.")
+    await get_db().bank_accounts.update_one({"id": account_id}, {"$set": {"balance_cents": balance, "balance_date": balance_date}})
+    await audit.log(user, "saldo_corretto", account["company_id"], account["iban_masked"],
+                    {"prima": account.get("balance_cents", 0), "dopo": balance, "data": balance_date})
+    return public_account(await get_db().bank_accounts.find_one({"id": account_id}, {"_id": 0}))
+
+
 @router.post("/companies/{company_id}/bank-accounts/manual")
 async def create_manual(company_id: str, body: ManualAccountIn, user: dict = Depends(get_current_user)):
     """Conto senza collegamento automatico: i movimenti arrivano importando l'estratto conto."""
@@ -497,8 +524,11 @@ async def undo_import(import_id: str, user: dict = Depends(get_current_user)):
     is_last = not others or others[0]["at"] < record["at"]
     if "balance_before_cents" in record and is_last:
         balance, balance_date = record["balance_before_cents"], record.get("balance_before_date") or account.get("balance_date")
-    else:
+    elif "balance_before_cents" in record:
         balance, balance_date = account.get("balance_cents", 0) - sum(t["amount_cents"] for t in txs), account.get("balance_date")
+    else:
+        # caricamento di una versione precedente: il saldo non si sa ricostruire, resta com'è e va controllato
+        balance, balance_date = account.get("balance_cents", 0), account.get("balance_date")
     update = {"balance_cents": balance, "balance_date": balance_date,
               "last_import_to": max((o["date_to"] for o in others), default=None)}
     if not others:
@@ -508,7 +538,7 @@ async def undo_import(import_id: str, user: dict = Depends(get_current_user)):
                                                                        "removed": len(ids)}})
     await audit.log(user, "estratto_conto_annullato", account["company_id"], record.get("filename"),
                     {"movimenti_tolti": len(ids), "conto": account["iban_masked"]})
-    return {"removed": len(ids), "account": public_account(await db.bank_accounts.find_one({"id": account["id"]}, {"_id": 0}))}
+    return {"removed": len(ids), "check_balance": "balance_before_cents" not in record, "account": public_account(await db.bank_accounts.find_one({"id": account["id"]}, {"_id": 0}))}
 
 
 @router.get("/bank-accounts/{account_id}/imports")
