@@ -304,7 +304,8 @@ async def reset_member_password(user_id: str, user: dict = Depends(get_current_u
         raise HTTPException(403, "La password di un titolare la azzera lo sviluppatore.")
     if not target.get("active", True):
         raise HTTPException(400, "L'utente è disattivato: riattivalo prima.")
-    return {"temporary_password": await reset_password(user, target), "email": target["email"],
+    temp, expires = await reset_password(user, target)
+    return {"temporary_password": temp, "expires_at": expires, "email": target["email"],
             "totp_enabled": bool(target.get("totp_enabled"))}
 
 

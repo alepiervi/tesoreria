@@ -29,6 +29,10 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Utente non attivo.")
     if payload.get("ver", 0) != user.get("token_version", 0):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessione non più valida.")
+    if user.get("must_change_password"):
+        from .services.passwords import EXPIRED, temp_expired
+        if temp_expired(user):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, EXPIRED)
     if user.get("must_change_password") and request.url.path not in PASSWORD_CHANGE_PATHS:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "password_change_required")
     from .services.ai_usage import current_user

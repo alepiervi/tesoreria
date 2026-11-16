@@ -64,7 +64,7 @@ export function DevOwners({ onCreated }) {
           </Field>
           <div><Button type="submit" loading={busy === "create"} data-testid="owner-create-submit">Crea titolare</Button></div>
         </form>
-        {temp && <div className="mt-4"><TempPasswordBox email={temp.email} password={temp.temporary_password} newAccount={tempNew} onClose={() => setTemp(null)} /></div>}
+        {temp && <div className="mt-4"><TempPasswordBox email={temp.email} password={temp.temporary_password} expiresAt={temp.expires_at} newAccount={tempNew} onClose={() => setTemp(null)} /></div>}
       </Card>
       <Card title="Titolari" subtitle="Solo nome ed email: puoi azzerare la password, la verifica in due passaggi resta invariata">
         {owners.length === 0 ? <p className="text-sm text-muted">Nessun titolare ancora.</p> : (
@@ -75,7 +75,9 @@ export function DevOwners({ onCreated }) {
                   <span className="font-semibold">{o.name || o.email}</span>
                   {o.name && <span className="text-muted"> · {o.email}</span>}
                 </span>
-                {o.must_change_password && <Badge tone="orange">password provvisoria</Badge>}
+                {o.must_change_password && (o.temp_expired
+                  ? <Badge tone="gray">provvisoria scaduta</Badge>
+                  : <Badge tone="orange">password provvisoria</Badge>)}
                 {!o.active && <Badge tone="gray">disattivato</Badge>}
                 {o.active && (
                   <Button variant="secondary" className="min-h-[36px]" loading={busy === o.id} onClick={() => reset(o)} data-testid={`owner-reset-password-${o.id}`}>

@@ -11,6 +11,7 @@ from ..security import (
     create_access_token, create_setup_token, decode_access_token, hash_password, hash_token, new_recovery_codes,
     new_totp_secret, normalize_recovery_code, totp_step, totp_uri, validate_password_strength, verify_password,
 )
+from ..services.passwords import EXPIRED as TEMP_EXPIRED, temp_expired
 from ..utils import now_iso, now_utc
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -104,6 +105,9 @@ async def login(body: LoginIn):
 
     if not verify_password(body.password, user["password_hash"]):
         await fail_attempt(db, user, "login_fallito", "Email o password non corretti.")
+    if temp_expired(user):
+        await audit.log(user, "password_provvisoria_scaduta")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, TEMP_EXPIRED)
 
     if user.get("totp_enabled"):
         if not body.totp_code:
@@ -188,6 +192,8 @@ async def logout_everywhere(user: dict = Depends(get_current_user)):
 async def change_password(body: PasswordChangeIn, user: dict = Depends(get_current_user)):
     db = get_db()
     full = await db.users.find_one({"id": user["id"]})
+    if temp_expired(full):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, TEMP_EXPIRED)
     if not verify_password(body.current_password, full["password_hash"]):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "La password attuale non è corretta.")
     problem = validate_password_strength(body.new_password)
@@ -196,7 +202,8 @@ async def change_password(body: PasswordChangeIn, user: dict = Depends(get_curre
     if verify_password(body.new_password, full["password_hash"]):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "La nuova password deve essere diversa da quella attuale.")
     await db.users.update_one({"id": user["id"]}, {
-        "$set": {"password_hash": hash_password(body.new_password), "must_change_password": False},
+        "$set": {"password_hash": hash_password(body.new_password), "must_change_password": False,
+                 "temp_password_expires_at": None},
         "$inc": {"token_version": 1},
     })
     await audit.log(user, "password_cambiata")

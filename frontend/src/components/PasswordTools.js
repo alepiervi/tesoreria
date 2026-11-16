@@ -3,7 +3,7 @@ import { api, errorMessage, setToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Button, ErrorBox, Field, Notice } from "./ui";
 
-export function TempPasswordBox({ email, password, onClose, newAccount = false }) {
+export function TempPasswordBox({ email, password, expiresAt, onClose, newAccount = false }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4" data-testid="temp-password-box">
@@ -20,7 +20,9 @@ export function TempPasswordBox({ email, password, onClose, newAccount = false }
         </Button>
         {onClose && <Button variant="ghost" className="min-h-[36px]" onClick={onClose} data-testid="temp-password-close">Chiudi</Button>}
       </div>
-      <p className="text-xs text-muted">Non verrà mostrata di nuovo.</p>
+      <p className="text-xs text-muted" data-testid="temp-password-expiry">
+        Non verrà mostrata di nuovo.{expiresAt && ` Vale fino a ${new Date(expiresAt).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} (48 ore): poi serve un nuovo azzeramento.`}
+      </p>
     </div>
   );
 }

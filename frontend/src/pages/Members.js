@@ -52,7 +52,7 @@ export default function Members() {
         actions={<Button onClick={() => setInviteOpen(true)}>+ Invita un utente</Button>} />
       <ErrorBox>{error}</ErrorBox>
 
-      {tempPw && <TempPasswordBox email={tempPw.email} password={tempPw.temporary_password} newAccount={!tempPw.totp_enabled} onClose={() => setTempPw(null)} />}
+      {tempPw && <TempPasswordBox email={tempPw.email} password={tempPw.temporary_password} expiresAt={tempPw.expires_at} newAccount={!tempPw.totp_enabled} onClose={() => setTempPw(null)} />}
       {newLink && (
         <Notice>
           <div className="flex flex-col gap-2">

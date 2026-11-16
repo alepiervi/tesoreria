@@ -11,7 +11,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user, require_developer
 from ..security import hash_password, hash_token, new_invite_token
-from ..services.passwords import reset_password, temporary_password
+from ..services.passwords import reset_password, temp_expired, temp_expiry, temporary_password
 from ..services.app_settings import email_mode
 from ..services.errors import record_client_error
 from ..utils import new_id, now_iso, now_utc
@@ -138,8 +138,10 @@ async def list_owners(user: dict = Depends(developer)):
     """Solo nome ed email dei titolari, per poter azzerare la password. Nessun dato delle aziende."""
     owners = await get_db().users.find(
         {"is_owner": True, "is_developer": {"$ne": True}},
-        {"_id": 0, "id": 1, "email": 1, "name": 1, "active": 1, "must_change_password": 1, "created_at": 1}).to_list(100)
-    return [{**o, "active": o.get("active", True), "must_change_password": bool(o.get("must_change_password"))} for o in owners]
+        {"_id": 0, "id": 1, "email": 1, "name": 1, "active": 1, "must_change_password": 1, "temp_password_expires_at": 1,
+         "created_at": 1}).to_list(100)
+    return [{**o, "active": o.get("active", True), "must_change_password": bool(o.get("must_change_password")),
+             "temp_expired": temp_expired(o)} for o in owners]
 
 
 @router.post("/developer/owners")
@@ -153,7 +155,8 @@ async def create_owner(body: OwnerCreateIn, user: dict = Depends(developer)):
         raise HTTPException(400, "Esiste già un account con questa email: usa «Azzera password» nell'elenco dei titolari.")
     temp = temporary_password()
     owner = {"id": new_id(), "email": email, "name": body.name.strip(), "password_hash": hash_password(temp),
-             "is_owner": True, "active": True, "must_change_password": True, "totp_enabled": False,
+             "is_owner": True, "active": True, "must_change_password": True, "temp_password_expires_at": temp_expiry(),
+             "totp_enabled": False,
              "token_version": 0, "created_at": now_iso()}
     await db.users.insert_one(owner)
     await db.invites.delete_many({"email": email, "accepted_at": None})
@@ -161,7 +164,7 @@ async def create_owner(body: OwnerCreateIn, user: dict = Depends(developer)):
         await db.memberships.insert_one({"id": new_id(), "user_id": owner["id"], "company_id": c["id"],
                                          "role": "titolare", "created_at": now_iso()})
     await audit.log(user, "titolare_creato", target=email)
-    return {"id": owner["id"], "email": email, "temporary_password": temp}
+    return {"id": owner["id"], "email": email, "temporary_password": temp, "expires_at": owner["temp_password_expires_at"]}
 
 
 @router.post("/developer/owners/{owner_id}/reset-password")
@@ -171,7 +174,8 @@ async def reset_owner_password(owner_id: str, user: dict = Depends(developer)):
         raise HTTPException(404, "Titolare non trovato.")
     if not target.get("active", True):
         raise HTTPException(400, "Il titolare è disattivato.")
-    return {"email": target["email"], "temporary_password": await reset_password(user, target),
+    temp, expires = await reset_password(user, target)
+    return {"email": target["email"], "temporary_password": temp, "expires_at": expires,
             "totp_enabled": bool(target.get("totp_enabled"))}
 
 
