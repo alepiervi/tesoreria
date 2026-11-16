@@ -89,6 +89,8 @@ const MAP_FIELDS = [
   ["balance", "Saldo", false],
 ];
 
+export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
 const rowCounts = (r, include) => !r.duplicate && (!r.similar || include.has(r.index));
 
 /** Elenco completo dei movimenti letti: i possibili doppioni si spuntano per importarli comunque. */
@@ -137,7 +139,8 @@ function BalanceBox({ preview, include, balance, setBalance, balanceDate, setBal
     .reduce((t, r) => t + r.amount_cents, 0);
   const after = plan.mode === "file" ? plan.base_cents : plan.base_cents + sum;
   const fileClosing = preview.closing_balance_cents;
-  const differs = plan.mode === "sum" && fileClosing !== null && fileClosing !== undefined && fileClosing !== after;
+  const laterMovements = plan.account_balance_date && plan.account_balance_date > preview.date_to;
+  const differs = plan.mode === "sum" && !laterMovements && fileClosing !== null && fileClosing !== undefined && fileClosing !== after;
   return (
     <div className="flex flex-col gap-3">
       {preview.balance_check === "ok" && <Notice>I conti tornano: saldo iniziale + movimenti letti = saldo finale del file.</Notice>}
@@ -196,7 +199,7 @@ export function ImportsHistoryModal({ account, onClose, onDone }) {
   };
 
   return (
-    <Modal open wide onClose={onClose} title={`Caricamenti · ${account.bank_name} ${account.iban_masked}`}
+    <Modal open wide onClose={onClose} title={`Caricamenti · ${account.bank_name} · ${account.label} · ${account.iban_masked}`}
       footer={<Button variant="secondary" onClick={onClose}>Chiudi</Button>}>
       <div className="flex flex-col gap-3" data-testid="imports-history">
         <ErrorBox>{error}</ErrorBox>
@@ -207,10 +210,10 @@ export function ImportsHistoryModal({ account, onClose, onDone }) {
                 <span className="min-w-[200px] flex-1 text-sm">
                   <span className="font-semibold">{r.filename}</span>
                   <span className="block text-xs text-muted">
-                    {r.imported} movimenti dal {fmtDate(r.date_from, { year: true })} al {fmtDate(r.date_to, { year: true })} · caricato il {fmtDate(r.at?.slice(0, 10), { year: true })}{r.imported_by_name ? ` da ${r.imported_by_name}` : ""}
+                    {plural(r.imported, "movimento", "movimenti")} dal {fmtDate(r.date_from, { year: true })} al {fmtDate(r.date_to, { year: true })} · caricato il {fmtDate(r.at?.slice(0, 10), { year: true })}{r.imported_by_name ? ` da ${r.imported_by_name}` : ""}
                   </span>
                 </span>
-                {r.undone_at ? <Badge>Annullato · {r.removed} movimenti tolti</Badge> : ask === r.id ? (
+                {r.undone_at ? <Badge>Annullato · {plural(r.removed, "movimento tolto", "movimenti tolti")}</Badge> : ask === r.id ? (
                   <span className="flex flex-wrap items-center gap-2 text-sm">
                     Tolgo i movimenti di questo caricamento?
                     <Button variant="secondary" onClick={() => setAsk(null)}>No</Button>
@@ -346,12 +349,12 @@ export function ImportStatementModal({ account, onClose, onDone }) {
   const toImport = hasRows ? preview.new_count + include.size : 0;
 
   return (
-    <Modal open wide onClose={onClose} title={`Importa estratto conto · ${account.bank_name} ${account.iban_masked}`}
+    <Modal open wide onClose={onClose} title={`Importa estratto conto · ${account.bank_name} · ${account.label} · ${account.iban_masked}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Annulla</Button>
           <Button onClick={submit} loading={busy === "import"} disabled={!hasRows || (toImport === 0 && !balance.trim())} data-testid="import-submit">
-            {hasRows ? `Importa ${toImport} movimenti` : "Importa"}
+            {hasRows ? `Importa ${plural(toImport, "movimento", "movimenti")}` : "Importa"}
           </Button>
         </>
       }>
@@ -381,14 +384,14 @@ export function ImportStatementModal({ account, onClose, onDone }) {
             ) : (
               <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="import-preview-summary">
                 <Badge tone="blue">{preview.format_label}</Badge>
-                <span>{preview.count} movimenti dal {fmtDate(preview.date_from, { year: true })} al {fmtDate(preview.date_to, { year: true })}</span>
+                <span>{plural(preview.count, "movimento", "movimenti")} dal {fmtDate(preview.date_from, { year: true })} al {fmtDate(preview.date_to, { year: true })}</span>
                 <span className="text-muted">· entrate {eur(preview.total_in_cents)} · uscite {eur(preview.total_out_cents)}</span>
                 {preview.duplicate_count > 0 && <Badge>{preview.duplicate_count} già presenti</Badge>}
-                {preview.similar_count > 0 && <Badge tone="orange">{preview.similar_count} possibili doppioni</Badge>}
+                {preview.similar_count > 0 && <Badge tone="orange">{plural(preview.similar_count, "possibile doppione", "possibili doppioni")}</Badge>}
               </div>
             )}
             {preview.similar_count > 0 && (
-              <Notice tone="orange">{preview.similar_count} movimenti hanno lo stesso importo e una data vicina a movimenti già presenti sul conto: non li importo, a meno che tu non spunti «Importa comunque».</Notice>
+              <Notice tone="orange">{preview.similar_count === 1 ? "1 movimento ha" : `${preview.similar_count} movimenti hanno`} lo stesso importo e una data vicina a movimenti già presenti sul conto: non {preview.similar_count === 1 ? "lo" : "li"} importo, a meno che tu non spunti «Importa comunque».</Notice>
             )}
             {preview.warnings?.map((w) => <Notice key={w} tone="orange">{w}</Notice>)}
             {!preview.needs_mapping && (

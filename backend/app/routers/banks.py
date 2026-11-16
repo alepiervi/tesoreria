@@ -361,6 +361,10 @@ async def _similar(account: dict, movements: list[dict], ids: list[str], existin
 
 def _balance_plan(account: dict, parsed: dict) -> dict:
     """Saldo dopo l'import = base + movimenti nuovi (per la carta: il debito scritto sull'estratto, se c'è)."""
+    return {**_plan(account, parsed), "account_balance_date": account.get("balance_date") if account.get("last_import_at") else None}
+
+
+def _plan(account: dict, parsed: dict) -> dict:
     is_card = account.get("account_type") == "carta"
     first = not account.get("last_import_at")
     if is_card and parsed.get("closing_balance_cents") is not None:

@@ -33,6 +33,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: Provisional passwords expire after 48h (temp_password_expires_at; login, session and change blocked with clear message; badge "provvisoria scaduta"; expiry shown in temp box)
 
+- 2026-06: Bank statement import fix (BPM report): PDF parser reads columns Dare/Avere/Descrizione wherever the description sits (also right of amounts, multi-line, page footers ignored), reads saldo iniziale/finale and checks opening+movements=closing; if it doesn't match or descriptions are missing, re-reads with Claude (cached per file). Excel .xls (xlrd) and HTML-disguised .xls, Excel serial dates, saldo rows. Balance = previous balance + imported movements (first import: opening balance of the file; cards keep the file's debt). Preview lists all rows; possible duplicates (same amount, dates within 4 days) are skipped unless the user ticks «Importa comunque». «Caricamenti» history with «Annulla import» (removes the upload's transactions, fixes balance; blocked if reconciled). transactions.import_id, statement_imports.balance_before_cents
+
 ## Mocked (demo providers)
 None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 

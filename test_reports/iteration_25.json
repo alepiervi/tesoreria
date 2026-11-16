@@ -1,0 +1,39 @@
+{
+  "summary": "Frontend-only end-to-end test of bank statement import (Banco BPM) on QA Azienda Srl / Conto BPM QA (account bf0470c3-2c87-452b-ad83-99126d5b08ce). I logged in through the UI as the owner, with the TOTP code computed by pyotp. All requested flows PASS. (1) PDF preview: 5 rows with full descriptions. Row 0 matches the expected text exactly. The 'I conti tornano' notice shows, import-balance-after is 12.516,75 €, and the button reads 'Importa 5 movimenti'. After import: toast '5 movimenti importati', the account row and the 'Saldo conti' stat show 12.516,75 €, and the 'Caricamenti' button appears. (2) XLS (HTML-disguised .xls) preview: 'Excel (.xls)' badge, 2 rows, '1 possibili doppioni' badge. Row 0 shows 'Simile a un movimento già presente del 20 gen 2026: VERSAMENTO CONTANTI' and import-include-0 is unchecked. Initial state: 'Importa 1 movimenti' / 12.216,25 €. Ticked: 'Importa 2 movimenti' / 13.196,25 €. Unticked again: back to 1 / 12.216,25 €. After import the account shows 12.216,25 € and 'Movimenti importati fino al 5 feb 2026'. (3) The history modal lists the uploads. Undoing movimenti.xls gives the toast 'Caricamento annullato: 1 movimenti tolti', the balance returns to 12.516,75 € and the row badge reads 'Annullato · 1 movimenti tolti'. (4) The manual balance toggle shows import-balance-input. Note: my first undo script selected the wrong entry (my mistake: the text 'movimenti' also matches the PDF row), so it undid the PDF first. That gave 9.699,50 €, which is correct (12.216,25 − 2.516,75). I then re-imported the PDF (sum mode: 9.699,50 + 2.516,75 = 12.216,25 €, correct) and undid the XLS, ending at 12.516,75 € as expected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ImportStatementModal > BalanceBox", "issues": [
+        "When you re-import an older statement while the account already has later movements (the PDF up to 20/01 after the XLS up to 05/02), the box shows 'I conti tornano' AND the orange warning 'Il saldo finale scritto nel file è 12.516,75 €: differenza di 300,50 €'. The computed balance (12.216,25 €) is correct: the 300,50 € is the later F24 debit. The warning is therefore misleading. Suggestion: compare the file's closing balance with the account balance at closing_balance_date, or skip the warning when there are account movements after the file's end date.",
+        "The balance date field ('Alla data', st-bal-date) and ManualAccountModal use the browser's native date picker (input type=date), not the shadcn calendar."
+      ]},
+      {"screen": "Toasts / history", "issues": [
+        "The import toast reads '1 movimenti importati, 1 già presenti' even though the skipped row was a possible duplicate the user chose not to import, not an exact duplicate. Consider 'non importati' / 'doppioni saltati'.",
+        "Italian singular/plural: '1 movimenti importati', 'Importa 1 movimenti', '1 movimenti tolti', '1 possibili doppioni', '1 movimenti hanno lo stesso importo'. Should be '1 movimento' / '1 possibile doppione'.",
+        "Modal titles 'Importa estratto conto · Banco BPM IBAN non indicato' and 'Caricamenti · Banco BPM IBAN non indicato' have no separator between the bank name and the masked IBAN. The account label ('Conto BPM QA') is also missing."
+      ]},
+      {"screen": "CompanyPage accounts row", "issues": [
+        "After an import the row still says 'saldo al 16 nov 2026' (today), while the movements only go up to 20 gen / 5 feb 2026. This may be intended, but the balance date could reflect the statement's closing date."
+      ]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: avoid the 'differenza di X €' warning when the account has movements after the file's end date (the warning is misleading in the re-import case).",
+    "Optional: Italian singular forms for count 1 in toasts, buttons and badges.",
+    "Optional: wording of the 'già presenti' toast when similar rows are skipped."
+  ],
+  "critical_code_review_comments": [
+    "BankImport.js BalanceBox: the 'differs' check compares preview.closing_balance_cents (the balance at the file's date) with 'after' (the current balance after import, which includes later movements). This mixes two different points in time.",
+    "BankImport.js toImport = preview.new_count + include.size assumes every included index is a 'similar' row. That holds today because only similar rows render a checkbox, but it would break if include ever held duplicates.",
+    "BankImport.js is 462 lines, which is fine. It holds 3 modals plus helpers; consider splitting if it grows."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (frontend only)", "frontend": "100% (all 5 requested flows)"},
+  "seed_data_creation": "No new users or companies. Final data state on Conto BPM QA: 3 import records. bpm_trimestrale.pdf #82f2f9ad is undone, bpm_movimenti.xls #58663307 is undone, and bpm_trimestrale.pdf #4dfcae74 is ACTIVE (5 movements). The balance is 12.516,75 €. The account no longer has 'no imports'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Company id e38bebda-839b-43f5-a9b5-1f018e8f0a3e, account id bf0470c3-2c87-452b-ad83-99126d5b08ce. Log in through the UI: login-email, login-password, login-submit, then totp-code-input. Wait for a fresh 30s TOTP window on each new browser session (replay protection). The token is stored in localStorage key 'tesoreria_token'. History items are li[data-testid=import-history-<id>]; select them by filename, not by the substring 'movimenti'."
+}

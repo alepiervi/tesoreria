@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ImportStatementModal, ImportsHistoryModal, ManualAccountModal } from "../components/BankImport";
+import { ImportStatementModal, ImportsHistoryModal, ManualAccountModal, plural } from "../components/BankImport";
 import { ForecastChart, MonthlyChart, forecastNote } from "../components/Charts";
 import ScenarioModal from "../components/ScenarioModal";
 import { Amount, Badge, Button, Card, ErrorBox, Field, Loading, Modal, Notice, PageHeader, Stat, useToast } from "../components/ui";
@@ -253,14 +253,14 @@ export default function CompanyPage() {
       <ImportsHistoryModal account={historyFor} onClose={() => setHistoryFor(null)}
         onDone={(r) => {
           setHistoryFor(null);
-          toast(`Caricamento annullato: ${r.removed} movimenti tolti`);
+          toast(`Caricamento annullato: ${plural(r.removed, "movimento tolto", "movimenti tolti")}`);
           load();
           refreshCounts();
         }} />
       <ImportStatementModal account={importFor} onClose={() => setImportFor(null)}
         onDone={(r) => {
           setImportFor(null);
-          toast(r.imported ? `${r.imported} movimenti importati${r.duplicates ? `, ${r.duplicates} già presenti` : ""}` : "Nessun movimento nuovo");
+          toast(r.imported ? `${plural(r.imported, "movimento importato", "movimenti importati")}${r.duplicates ? `, ${plural(r.duplicates, "doppione saltato", "doppioni saltati")}` : ""}` : "Nessun movimento nuovo");
           load();
           refreshCounts();
         }} />

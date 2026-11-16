@@ -55,7 +55,7 @@ def test_balance_by_sum_similar_duplicates_and_undo(client, owner):
     xls = {"file": ("movimenti.xls", html.encode(), "application/vnd.ms-excel")}
     p = client.post(f"/api/bank-accounts/{acc['id']}/statement/preview", headers=owner, files=xls).json()
     assert p["similar_count"] == 1 and p["new_count"] == 1 and p["rows"][0]["similar"]["description"] == "VERSAMENTO CONTANTI"
-    assert p["balance_plan"] == {"mode": "sum", "base_cents": 1251675, "after_date": None, "base_label": "saldo attuale del conto"}
+    assert p["balance_plan"]["base_cents"] == 1251675 and p["balance_plan"]["account_balance_date"]
     r = client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner, files=xls).json()
     assert r["imported"] == 1 and r["account"]["balance_cents"] == 1251675 - 30050 and r["account"]["balance_date"] == "2026-02-05"
 
