@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CassettoModal } from "../components/Cassetto";
 import CompanyPicker, { usePageCompany } from "../components/CompanyPicker";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Loading, Modal, Notice, PageHeader, Tabs, useToast } from "../components/ui";
 import { api, downloadFile, errorMessage } from "../lib/api";
@@ -18,6 +19,7 @@ export default function Invoices() {
   const [importResult, setImportResult] = useState(null);
   const [busy, setBusy] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
+  const [cassettoOpen, setCassettoOpen] = useState(false);
   const [accountingInv, setAccountingInv] = useState(null);
   const fileRef = useRef(null);
 
@@ -64,7 +66,7 @@ export default function Invoices() {
     setBusy("sdi");
     try {
       const res = await api.post(`/companies/${company.id}/invoices/sync-sdi`);
-      toast(res.data.imported ? `${res.data.imported} nuove fatture ricevute` : "Nessuna nuova fattura");
+      toast(res.data.imported ? `${res.data.imported === 1 ? "1 nuova fattura" : `${res.data.imported} nuove fatture`} dal cassetto` : "Nessuna nuova fattura");
       load();
     } catch (e) {
       toast(errorMessage(e), "orange");
@@ -94,10 +96,11 @@ export default function Invoices() {
             <CompanyPicker value={company.id} onChange={setCompany} />
             {canManage && (
               <>
-                <input ref={fileRef} type="file" accept=".xml,application/xml,text/xml" multiple className="sr-only" id="xml-upload"
+                <input ref={fileRef} type="file" accept=".xml,.p7m,.zip,application/xml,text/xml,application/zip,application/x-zip-compressed" multiple className="sr-only" id="xml-upload"
                   onChange={(e) => upload(e.target.files)} />
-                <Button variant="secondary" loading={busy === "import"} onClick={() => fileRef.current?.click()}>Importa XML</Button>
-                {sdiAuto && <Button variant="secondary" loading={busy === "sdi"} onClick={syncSdi}>Scarica da SDI</Button>}
+                <Button variant="secondary" loading={busy === "import"} onClick={() => fileRef.current?.click()} data-testid="invoices-import-btn">Importa XML o ZIP</Button>
+                {sdiAuto && <Button variant="secondary" loading={busy === "sdi"} onClick={syncSdi} data-testid="invoices-sync-btn">Scarica dal cassetto</Button>}
+                <Button variant="ghost" onClick={() => setCassettoOpen(true)} data-testid="cassetto-open">Cassetto fiscale</Button>
                 <Button onClick={() => setManualOpen(true)}>+ Nuova fattura</Button>
               </>
             )}
@@ -198,6 +201,7 @@ export default function Invoices() {
         )}
       </Modal>
 
+      <CassettoModal open={cassettoOpen} company={company} onClose={() => setCassettoOpen(false)} />
       <ManualInvoiceModal open={manualOpen} onClose={() => setManualOpen(false)} companyId={company.id}
         onDone={() => { setManualOpen(false); toast("Fattura inserita"); load(); }} />
     </>

@@ -1,4 +1,5 @@
 """Impostazioni del titolare: casella email (es. Aruba) e stato dei collegamenti."""
+from ..integrations.sdi import get_sdi_provider
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -32,7 +33,8 @@ class TestIn(BaseModel):
 async def features() -> dict:
     return {
         "bank_auto": settings.banking_provider != "none",
-        "sdi_auto": settings.sdi_provider != "none",
+        "sdi_auto": get_sdi_provider() is not None,
+        "cassetto": get_sdi_provider().name if get_sdi_provider() else None,
         "payments_auto": settings.payments_provider != "none",
         "whatsapp": settings.whatsapp_provider != "none",
         "email": await email_mode() == "smtp",

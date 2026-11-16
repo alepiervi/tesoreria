@@ -39,6 +39,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: PDF phantom movements fix: movements read only inside the movement table (after Dare/Avere header) and stop at Riassunto scalare / prospetti / documento di sintesi; rows whose description has no letters are dropped; balances read from summary boxes (labels row + values row) and labelled amounts, ignoring saldo liquido/disponibile. AI re-read when the check is not ok, used only if its totals match. Import blocked (409) when opening+movements≠closing unless rows are excluded («Non c'è nel file», form `exclude`) or the user confirms (`confirm_mismatch`).
 
+- 2026-06: Cassetto fiscale. Root cause of fake invoices in production: prod secrets had SDI/BANKING/PAYMENTS_PROVIDER=demo. Now demo providers only run with ALLOW_DEMO_PROVIDERS=true (tests); defaults 'none'. Invoice import accepts ZIP (download massivo from Fatture e Corrispettivi, nested zips, metaDato skipped). A-Cube integration (app/integrations/acube.py): active when ACUBE_EMAIL/ACUBE_PASSWORD (+ACUBE_ENVIRONMENT sandbox|production) are set; GET/POST /api/companies/{id}/cassetto[/activate] (BRC + daily schedule), sync-sdi pulls received+issued invoices since acube_last_sync. UI: «Cassetto fiscale» modal on Fatture page. Pending: user A-Cube contract + Delega Unica; credentials via secrets.
+
 ## Mocked (demo providers)
 None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 

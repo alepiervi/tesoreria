@@ -12,6 +12,7 @@ os.environ["REQUIRE_2FA_FOR_PAYMENTS"] = "false"
 os.environ["AI_PROVIDER"] = "demo"
 os.environ["EMAIL_PROVIDER"] = "demo"
 os.environ["REQUIRE_2FA_LOGIN"] = "false"
+os.environ["ALLOW_DEMO_PROVIDERS"] = "true"
 for _k in ("BANKING_PROVIDER", "SDI_PROVIDER", "PAYMENTS_PROVIDER", "WHATSAPP_PROVIDER"):
     os.environ[_k] = "demo"
 

@@ -86,10 +86,9 @@ class DemoSdiProvider(SdiProvider):
 
 
 def get_sdi_provider() -> SdiProvider | None:
-    if settings.sdi_provider == "none":
-        return None
-    providers = {"demo": DemoSdiProvider}
-    cls = providers.get(settings.sdi_provider)
-    if cls is None:
-        raise RuntimeError(f"Provider SDI non configurato: {settings.sdi_provider}")
-    return cls()
+    if settings.acube_email and settings.acube_password:
+        from .acube import AcubeSdiProvider
+        return AcubeSdiProvider()
+    if settings.sdi_provider == "demo":
+        return DemoSdiProvider()
+    return None

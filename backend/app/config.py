@@ -14,6 +14,12 @@ def _bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "si", "sì"}
 
 
+def _provider(name: str) -> str:
+    """I fornitori dimostrativi (dati finti) si accendono solo se ALLOW_DEMO_PROVIDERS=true (test)."""
+    value = os.environ.get(name, "none")
+    return "none" if value == "demo" and not _bool("ALLOW_DEMO_PROVIDERS", False) else value
+
+
 class Settings:
     mongo_url: str = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name: str = os.environ.get("DB_NAME", "tesoreria")
@@ -29,9 +35,13 @@ class Settings:
     developer_password_hash: str = os.environ.get("DEVELOPER_PASSWORD_HASH", "")
     developer_name: str = os.environ.get("DEVELOPER_NAME", "Sviluppatore")
     require_2fa_login: bool = _bool("REQUIRE_2FA_LOGIN", True)
-    banking_provider: str = os.environ.get("BANKING_PROVIDER", "demo")
-    sdi_provider: str = os.environ.get("SDI_PROVIDER", "demo")
-    payments_provider: str = os.environ.get("PAYMENTS_PROVIDER", "demo")
+    banking_provider: str = _provider("BANKING_PROVIDER")
+    sdi_provider: str = _provider("SDI_PROVIDER")
+    # Cassetto fiscale tramite A-Cube (intermediario accreditato): attivo quando ci sono le credenziali
+    acube_email: str = os.environ.get("ACUBE_EMAIL", "")
+    acube_password: str = os.environ.get("ACUBE_PASSWORD", "")
+    acube_environment: str = os.environ.get("ACUBE_ENVIRONMENT", "production")
+    payments_provider: str = _provider("PAYMENTS_PROVIDER")
     max_document_mb: int = int(os.environ.get("MAX_DOCUMENT_MB", "10"))
     timezone: str = os.environ.get("TIMEZONE", "Europe/Rome")
 

@@ -1,4 +1,6 @@
+import io
 import re
+import zipfile
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -7,15 +9,43 @@ from pydantic import BaseModel
 from .. import audit
 from ..db import get_db
 from ..deps import get_current_user, require
+from ..integrations import acube
+from ..integrations.acube import AcubeError
 from ..integrations.sdi import get_sdi_provider
 from ..services.fatturapa import FatturaPAError, parse_fatturapa, unwrap_p7m
 from ..services.invoices import register_invoice
-from ..utils import to_cents
+from ..utils import now_iso, to_cents
 from .common import assert_open, load
 
 router = APIRouter(tags=["invoices"])
 
 MAX_XML_BYTES = 5 * 1024 * 1024
+MAX_ZIP_BYTES = 60 * 1024 * 1024
+MAX_ZIP_FILES = 5000
+
+
+def _expand(name: str, data: bytes, depth: int = 0) -> list[tuple[str, bytes]]:
+    """Un file ZIP (es. scarico massivo dal cassetto fiscale) diventa l'elenco delle fatture che contiene."""
+    if data[:2] != b"PK":
+        return [(name, data)]
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise FatturaPAError("Il file ZIP è danneggiato.")
+    out, total = [], 0
+    for info in zf.infolist()[:MAX_ZIP_FILES]:
+        low = info.filename.lower()
+        if info.is_dir() or "metadato" in low or "__macosx" in low or not low.endswith((".xml", ".p7m", ".zip")):
+            continue
+        total += info.file_size
+        if info.file_size > MAX_ZIP_BYTES or total > 4 * MAX_ZIP_BYTES:
+            raise FatturaPAError("Lo ZIP è troppo grande: dividilo in più parti.")
+        inner = zf.read(info)
+        if low.endswith(".zip") and depth < 2:
+            out += _expand(info.filename, inner, depth + 1)
+        elif not low.endswith(".zip"):
+            out.append((info.filename.rsplit("/", 1)[-1], inner))
+    return out
 
 
 class InvoiceIn(BaseModel):
@@ -56,20 +86,29 @@ async def import_xml(company_id: str, files: list[UploadFile] = File(...), user:
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     results = []
     for f in files:
-        data = await f.read(MAX_XML_BYTES + 1)
-        if len(data) > MAX_XML_BYTES:
+        data = await f.read(MAX_ZIP_BYTES + 1)
+        limit = MAX_ZIP_BYTES if data[:2] == b"PK" else MAX_XML_BYTES
+        if len(data) > limit:
             results.append({"file": f.filename, "ok": False, "error": "File troppo grande."})
             continue
         try:
-            docs = parse_fatturapa(data)
-            xml_text = unwrap_p7m(data.lstrip(b"\xef\xbb\xbf \r\n\t")).decode("utf-8", errors="replace")
-            for doc in docs:
-                inv, created = await register_invoice(db, company, doc, "xml", xml_text)
-                results.append({"file": f.filename, "ok": True, "created": created, "invoice_id": inv["id"],
-                                "number": inv["number"], "direction": inv["direction"],
-                                "counterparty": inv["counterparty_name"], "total_cents": inv["total_cents"]})
-        except (FatturaPAError, ValueError) as e:
+            entries = _expand(f.filename or "", data)
+        except FatturaPAError as e:
             results.append({"file": f.filename, "ok": False, "error": str(e)})
+            continue
+        if not entries:
+            results.append({"file": f.filename, "ok": False, "error": "Nello ZIP non ci sono fatture (.xml o .p7m)."})
+        for name, content in entries:
+            try:
+                docs = parse_fatturapa(content)
+                xml_text = unwrap_p7m(content.lstrip(b"\xef\xbb\xbf \r\n\t")).decode("utf-8", errors="replace")
+                for doc in docs:
+                    inv, created = await register_invoice(db, company, doc, "xml", xml_text)
+                    results.append({"file": name, "ok": True, "created": created, "invoice_id": inv["id"],
+                                    "number": inv["number"], "direction": inv["direction"],
+                                    "counterparty": inv["counterparty_name"], "total_cents": inv["total_cents"]})
+            except (FatturaPAError, ValueError) as e:
+                results.append({"file": name, "ok": False, "error": str(e)})
     imported = sum(1 for r in results if r.get("ok") and r.get("created"))
     if imported:
         await audit.log(user, "fatture_importate", company_id, details={"numero": imported})
@@ -86,13 +125,18 @@ async def sync_sdi(company_id: str, user: dict = Depends(get_current_user)):
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     provider = get_sdi_provider()
     if provider is None:
-        raise HTTPException(400, "Il collegamento con lo SDI non è attivo: importa i file XML delle fatture.")
-    xmls = await provider.fetch_new_invoices(company)
+        raise HTTPException(400, "Il collegamento con il cassetto fiscale non è attivo: importa i file XML o ZIP delle fatture.")
+    started = now_iso()
+    try:
+        xmls = await provider.fetch_new_invoices(company)
+    except AcubeError as e:
+        raise HTTPException(502, str(e))
     created = 0
     for xml in xmls:
         for doc in parse_fatturapa(xml.encode("utf-8")):
             _, was_created = await register_invoice(db, company, doc, "sdi", xml)
             created += int(was_created)
+    await db.companies.update_one({"id": company_id}, {"$set": {"acube_last_sync": started}})
     await audit.log(user, "sdi_sincronizzato", company_id, details={"nuove": created})
     if created:
         from ..services.vat import sync_vat_deadlines
@@ -154,3 +198,39 @@ async def delete_invoice(invoice_id: str, user: dict = Depends(get_current_user)
     await db.deadlines.delete_many({"invoice_id": invoice_id})
     await audit.log(user, "fattura_eliminata", inv["company_id"], f"{inv['number']} {inv['counterparty_name']}")
     return {"ok": True}
+
+
+def _need_acube():
+    p = get_sdi_provider()
+    if not p or p.name != "acube":
+        raise HTTPException(400, "Il collegamento automatico con il cassetto fiscale non è ancora configurato.")
+
+
+@router.get("/companies/{company_id}/cassetto")
+async def cassetto_status(company_id: str, user: dict = Depends(get_current_user)):
+    await require(user, company_id, "manage_invoices")
+    company = await get_db().companies.find_one({"id": company_id}, {"_id": 0})
+    p = get_sdi_provider()
+    out = {"provider": p.name if p else None, "activated_at": company.get("acube_activated_at"),
+           "last_sync": company.get("acube_last_sync")}
+    if p and p.name == "acube":
+        try:
+            out.update(await acube.status(company))
+        except AcubeError as e:
+            out["error"] = str(e)
+    return out
+
+
+@router.post("/companies/{company_id}/cassetto/activate")
+async def cassetto_activate(company_id: str, user: dict = Depends(get_current_user)):
+    await require(user, company_id, "manage_invoices")
+    _need_acube()
+    db = get_db()
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    try:
+        result = await acube.activate(company, user.get("email", ""))
+    except AcubeError as e:
+        raise HTTPException(502, str(e))
+    await db.companies.update_one({"id": company_id}, {"$set": {"acube_activated_at": now_iso()}})
+    await audit.log(user, "cassetto_fiscale_attivato", company_id, details={"partita_iva": result.get("fiscal_id")})
+    return {**result, "activated_at": now_iso()}
