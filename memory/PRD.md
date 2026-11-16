@@ -31,6 +31,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: Provisional passwords: developer creates owners with temp password + lists owners (name/email only) with reset; owner resets collaborators; must_change_password gate (403 except me/password) + ForcePasswordChange screen; reset never touches 2FA
 
+- 2026-06: Provisional passwords expire after 48h (temp_password_expires_at; login, session and change blocked with clear message; badge "provvisoria scaduta"; expiry shown in temp box)
+
 ## Mocked (demo providers)
 None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 

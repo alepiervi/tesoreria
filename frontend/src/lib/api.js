@@ -37,7 +37,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !PUBLIC_PATHS.some((p) => url.includes(p))) {
       setToken(null);
       const detail = error.response?.data?.detail;
-      if (typeof detail === "string" && detail.includes("scaduta")) sessionStorage.setItem("login_notice", detail);
+      if (typeof detail === "string" && detail.includes("password provvisoria")) sessionStorage.setItem("login_notice", detail);
       if (!window.location.pathname.startsWith("/login")) window.location.assign("/login");
     }
     return Promise.reject(error);

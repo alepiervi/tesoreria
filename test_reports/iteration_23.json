@@ -1,0 +1,26 @@
+{
+  "summary": "I retested the fix from iteration 22 in the frontend with Playwright on the public URL. Setup used API scripts in /tmp, which I have since deleted: the developer's 2FA enrollment via pyotp and the creation of the owner TEST_Exp23b. Flow 1 PASSES. The owner logs in with the temp password, enrolls 2FA in the UI and confirms the recovery codes, and the forced-change screen opens. Then temp_password_expires_at is set to 1 minute ago with pymongo (db tesoreria) and the change is submitted. The user is redirected to /login, the token is cleared, and the ErrorBox (role=alert) shows 'La password provvisoria è scaduta (vale 48 ore). Chiedi un nuovo azzeramento.' The sessionStorage key login_notice is already removed. After a reload of /login there is no alert. Flow 2 (regression) PARTIALLY FAILS. An invalid token in localStorage, then opening '/', does redirect to /login and clears the token. But the ErrorBox shows 'Sessione scaduta o non valida.' The reason: the backend message for an invalid or expired JWT (app/deps.py line 26) also contains 'scaduta', so the interceptor's detail.includes('scaduta') check stores it in login_notice. It is shown once and is gone after a reload, so it is not stale across reloads. But it is not the 'no message' behaviour that was requested.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Normal 401 (invalid or expired JWT) redirect to /login", "issue": "The interceptor in lib/api.js line 40 matches any detail containing 'scaduta'. deps.get_current_user raises 'Sessione scaduta o non valida.' for an undecodable or expired token, so this generic 401 also writes login_notice, and Login shows it in the ErrorBox. This also hides the idle-logout Notice, because Login.js renders it only when !error. It would affect every user whose JWT expires naturally. Other 401s ('Accesso richiesto.', 'Utente non attivo.', 'Sessione non più valida.') do not contain 'scaduta' and correctly show no message.", "affected_selectors": ["[role='alert']", "[data-testid='idle-logout-notice']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Make the login_notice match specific to the expired provisional password. For example, check detail.includes('password provvisoria') or compare it exactly with the EXPIRED text. Better: have the backend return a machine code for it (e.g. detail 'temp_password_expired', or a header) and map it in the frontend. Otherwise, accept and document that 'Sessione scaduta o non valida.' also appears after a normal JWT expiry. If you accept it, consider showing it as a neutral Notice rather than an error, and make sure it does not suppress the idle-logout notice."
+  ],
+  "critical_code_review_comments": [
+    "api.js: the 'scaduta' substring match is too broad (see the integration issue).",
+    "Login.js clears login_notice in a mount effect and keeps it in state, which is correct. Under React StrictMode the double mount still works, because useState's initializer reads sessionStorage before the effect runs.",
+    "sessionStorage.setItem in the interceptor is not wrapped in try/catch. setToken guards against browsers without storage, so this call could throw in the same environments (minor)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (frontend only)", "frontend": "1 of 2 flows fully pass; the regression flow redirects correctly but shows the 'Sessione scaduta o non valida.' message"},
+  "seed_data_creation": "The developer now has 2FA enrolled (secret only in Mongo). Owners: test_exp23@example.com (TEST_Exp23). My first run's expiry step failed (script error), so its forced change succeeded and the password is now TEST_NuovaPw2026!x, with 2FA on. test_exp23b@example.com (TEST_Exp23b): 2FA on, must_change_password=True, temp password expired. The main agent plans to wipe the DB. Nothing was written to /app/backend/tests or /app/test_reports/pytest.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The developer's TOTP secret is stored in plain text in users.totp_secret, so pyotp can log the developer in. Wait 31s between two logins of the same user (TOTP replay protection). For the expiry simulation, call an external python file with subprocess from the browser_automation script. Inline python -c with indentation failed in my first run."
+}
