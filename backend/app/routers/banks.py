@@ -1,8 +1,9 @@
 """Conti bancari: collegamento automatico (open banking), conti manuali e import degli estratti conto."""
+import copy
 import hashlib
 import json
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -12,6 +13,8 @@ from ..db import get_db
 from ..deps import get_current_user, require
 from ..integrations.banking import CONSENT_DAYS, get_banking_provider
 from ..services.categories import categorize, categorize_card, load_rules
+from ..services.accounting import sync_transactions
+from ..services.statement_pdf import weak_descriptions
 from ..services.statements import StatementError, detect_format, finish, parse_statement
 from ..utils import mask_iban, new_id, now_iso, parse_date, to_cents, today
 from .common import load
@@ -22,6 +25,8 @@ AUTO_OFF = "Il collegamento automatico con le banche non è attivo: importa l'es
 INITIAL_HISTORY_DAYS = 90
 MAX_STATEMENT_BYTES = 15 * 1024 * 1024
 MANUAL = "manuale"
+SIMILAR_DAYS = 4
+PREVIEW_ROWS = 3000
 
 
 class ConnectIn(BaseModel):
@@ -261,6 +266,24 @@ def _external_ids(account_id: str, movements: list[dict]) -> list[str]:
     return ids
 
 
+_AI_CACHE: dict[str, dict] = {}
+
+
+async def _ai_pdf(data: bytes, is_card: bool) -> dict | None:
+    """Lettura del PDF con l'assistente; il risultato resta in memoria così anteprima e import coincidono."""
+    from ..services.statement_pdf import parse_pdf_with_ai
+    key = hashlib.sha256(data).hexdigest() + ("c" if is_card else "")
+    if key not in _AI_CACHE:
+        try:
+            result = await parse_pdf_with_ai(data, is_card)
+        except Exception:  # noqa: BLE001 - assistente non raggiungibile: resta la lettura del testo
+            result = None
+        if len(_AI_CACHE) > 30:
+            _AI_CACHE.pop(next(iter(_AI_CACHE)))
+        _AI_CACHE[key] = result
+    return copy.deepcopy(_AI_CACHE[key])
+
+
 async def _read_statement(account: dict, file: UploadFile, mapping_raw: str, invert: bool = False) -> tuple[dict, list[str], set[str]]:
     if account.get("provider") != MANUAL:
         raise HTTPException(400, "L'import è per i conti manuali: questo conto si aggiorna in automatico.")
@@ -275,8 +298,7 @@ async def _read_statement(account: dict, file: UploadFile, mapping_raw: str, inv
         if detect_format(file.filename or "", data) != "pdf":
             raise HTTPException(400, str(e))
         # PDF scansionato o di formato insolito: si prova con l'assistente (se collegato a Claude)
-        from ..services.statement_pdf import parse_pdf_with_ai
-        ai_result = await parse_pdf_with_ai(data, is_card)
+        ai_result = await _ai_pdf(data, is_card)
         if not ai_result:
             raise HTTPException(400, f"{e} Con l'assistente collegato a Claude il PDF si può leggere anche così; altrimenti "
                                      "scarica dall'home banking il file CSV o Excel.")
@@ -284,6 +306,16 @@ async def _read_statement(account: dict, file: UploadFile, mapping_raw: str, inv
             parsed = finish(ai_result, "pdf")
         except StatementError as e2:
             raise HTTPException(400, str(e2))
+    else:
+        if parsed["format"] == "pdf" and (parsed.get("balance_check") == "mismatch" or weak_descriptions(parsed)):
+            # i conti non tornano o mancano le descrizioni: si confronta con la lettura dell'assistente
+            ai_result = await _ai_pdf(data, is_card)
+            if ai_result and ai_result["movements"] and (
+                    ai_result.get("balance_check") == "ok" or (weak_descriptions(parsed) and not weak_descriptions(ai_result))):
+                parsed = finish(ai_result, "pdf")
+    if parsed.get("balance_check") == "mismatch":
+        parsed["warnings"].append("Saldo iniziale più movimenti letti non corrisponde al saldo finale del file: "
+                                  "controlla con attenzione l'elenco qui sotto prima di importare.")
     if invert:
         for m in parsed["movements"]:
             m["amount_cents"] = -m["amount_cents"]
@@ -298,44 +330,104 @@ async def _read_statement(account: dict, file: UploadFile, mapping_raw: str, inv
     return parsed, ids, existing
 
 
+async def _similar(account: dict, movements: list[dict], ids: list[str], existing: set[str]) -> dict[int, dict]:
+    """Possibili doppioni: movimenti già sul conto con lo stesso importo e date vicine (es. estratto PDF ed Excel)."""
+    if not movements:
+        return {}
+    lo = (parse_date(min(m["date"] for m in movements)) - timedelta(days=SIMILAR_DAYS + 3)).isoformat()
+    hi = (parse_date(max(m["date"] for m in movements)) + timedelta(days=SIMILAR_DAYS + 3)).isoformat()
+    file_ids = set(ids)
+    by_amount: dict[int, list] = {}
+    for t in await get_db().transactions.find(
+            {"account_id": account["id"], "date": {"$gte": lo, "$lte": hi}},
+            {"_id": 0, "id": 1, "date": 1, "value_date": 1, "amount_cents": 1, "description": 1, "external_id": 1}).to_list(50000):
+        if t.get("external_id") not in file_ids:
+            by_amount.setdefault(t["amount_cents"], []).append(t)
+    used, found = set(), {}
+    for i, (m, eid) in enumerate(zip(movements, ids)):
+        if eid in existing:
+            continue
+        mine = [parse_date(m["date"]), parse_date(m.get("value_date") or m["date"])]
+        for t in by_amount.get(m["amount_cents"], []):
+            if t["id"] in used:
+                continue
+            theirs = [parse_date(t["date"]), parse_date(t.get("value_date") or t["date"])]
+            if min(abs((a - b).days) for a in mine for b in theirs) <= SIMILAR_DAYS:
+                used.add(t["id"])
+                found[i] = {"date": t["date"], "description": t["description"]}
+                break
+    return found
+
+
+def _balance_plan(account: dict, parsed: dict) -> dict:
+    """Saldo dopo l'import = base + movimenti nuovi (per la carta: il debito scritto sull'estratto, se c'è)."""
+    is_card = account.get("account_type") == "carta"
+    first = not account.get("last_import_at")
+    if is_card and parsed.get("closing_balance_cents") is not None:
+        return {"mode": "file", "base_cents": parsed["closing_balance_cents"], "after_date": None, "base_label": "saldo dell'estratto"}
+    if first and parsed.get("opening_balance_cents") is not None:
+        return {"mode": "sum", "base_cents": parsed["opening_balance_cents"], "after_date": None,
+                "base_label": "saldo iniziale dell'estratto"}
+    # primo import senza saldo iniziale: i movimenti fino alla data del saldo scritto a mano sono già compresi
+    after = account.get("balance_date") if first else None
+    return {"mode": "sum", "base_cents": account.get("balance_cents", 0), "after_date": after, "base_label": "saldo attuale del conto"}
+
+
 @router.post("/bank-accounts/{account_id}/statement/preview")
 async def preview_statement(account_id: str, file: UploadFile = File(...), mapping: str = Form(""), invert: bool = Form(False),
                             user: dict = Depends(get_current_user)):
     account, _ = await load("bank_accounts", account_id, user, "manage_banks")
     parsed, ids, existing = await _read_statement(account, file, mapping, invert)
-    rows = [{**m, "duplicate": eid in existing} for m, eid in zip(parsed["movements"], ids)]
+    similar = await _similar(account, parsed["movements"], ids, existing)
+    rows = [{**m, "index": i, "duplicate": eid in existing, "similar": similar.get(i)}
+            for i, (m, eid) in enumerate(zip(parsed["movements"], ids))]
     return {
         "needs_mapping": parsed.get("needs_mapping", False), "error": parsed.get("error"),
         "raw_rows": parsed.get("raw_rows"),
         "format": parsed["format"], "format_label": parsed["format_label"], "is_card": account.get("account_type") == "carta",
         "headers": parsed["headers"], "mapping": parsed["mapping"], "detected_mapping": parsed["detected_mapping"],
-        "count": len(rows), "new_count": sum(1 for r in rows if not r["duplicate"]),
-        "duplicate_count": sum(1 for r in rows if r["duplicate"]),
+        "count": len(rows), "new_count": sum(1 for r in rows if not r["duplicate"] and not r["similar"]),
+        "duplicate_count": sum(1 for r in rows if r["duplicate"]), "similar_count": len(similar),
         "date_from": parsed["date_from"], "date_to": parsed["date_to"],
         "total_in_cents": sum(r["amount_cents"] for r in rows if r["amount_cents"] > 0),
         "total_out_cents": -sum(r["amount_cents"] for r in rows if r["amount_cents"] < 0),
+        "opening_balance_cents": parsed.get("opening_balance_cents"), "balance_check": parsed.get("balance_check"),
         "closing_balance_cents": parsed["closing_balance_cents"], "closing_balance_date": parsed["closing_balance_date"],
-        "warnings": parsed["warnings"], "sample": rows[:15],
+        "balance_plan": _balance_plan(account, parsed),
+        "warnings": parsed["warnings"], "rows": rows[:PREVIEW_ROWS], "sample": rows[:15],
     }
+
+
+def _parse_include(raw: str) -> set[int]:
+    if not raw:
+        return set()
+    try:
+        return {int(i) for i in json.loads(raw)}
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Scelta dei movimenti non valida.")
 
 
 @router.post("/bank-accounts/{account_id}/statement/import")
 async def import_statement(account_id: str, file: UploadFile = File(...), mapping: str = Form(""),
                            closing_balance: str = Form(""), closing_balance_date: str = Form(""), invert: bool = Form(False),
-                           user: dict = Depends(get_current_user)):
+                           include: str = Form(""), user: dict = Depends(get_current_user)):
     account, _ = await load("bank_accounts", account_id, user, "manage_banks")
     db = get_db()
     parsed, ids, existing = await _read_statement(account, file, mapping, invert)
     if parsed.get("needs_mapping"):
         raise HTTPException(400, parsed.get("error") or "Indica quali colonne contengono data e importo.")
+    similar = await _similar(account, parsed["movements"], ids, existing)
+    chosen = _parse_include(include)
     rules = await load_rules(db, account["company_id"])
-    new = [_new_transaction(account, eid, m["date"], m["description"], m["amount_cents"], m.get("value_date"), "import",
-                            rules) for m, eid in zip(parsed["movements"], ids) if eid not in existing]
+    import_id = new_id()
+    picked = [(m, eid) for i, (m, eid) in enumerate(zip(parsed["movements"], ids))
+              if eid not in existing and (i not in similar or i in chosen)]
+    new = [{**_new_transaction(account, eid, m["date"], m["description"], m["amount_cents"], m.get("value_date"), "import", rules),
+            "import_id": import_id} for m, eid in picked]
     if new:
         await db.transactions.insert_many([dict(n) for n in new])
 
-    # Saldo: dal file se c'è, altrimenti quello scritto dall'utente
-    balance, balance_date = parsed["closing_balance_cents"], parsed["closing_balance_date"]
+    plan = _balance_plan(account, parsed)
     if closing_balance.strip():
         try:
             balance = to_cents(closing_balance)
@@ -344,24 +436,75 @@ async def import_statement(account_id: str, file: UploadFile = File(...), mappin
         if account.get("account_type") == "carta":
             balance = -abs(balance)
         balance_date = closing_balance_date or parsed["date_to"]
-    update = {"last_import_at": now_iso(),
-              "last_import_to": max(parsed["date_to"], account.get("last_import_to") or "")}
-    balance_updated = False
-    if balance is not None and (not account.get("balance_date") or balance_date >= account["balance_date"]
-                                or not account.get("last_import_at")):
-        update.update(balance_cents=balance, balance_date=balance_date)
-        balance_updated = True
+    elif plan["mode"] == "file":
+        balance, balance_date = plan["base_cents"], parsed["closing_balance_date"] or parsed["date_to"]
+    else:
+        balance = plan["base_cents"] + sum(n["amount_cents"] for n in new if not plan["after_date"] or n["date"] > plan["after_date"])
+        balance_date = max(parsed["date_to"], account.get("balance_date") or "")
+    update = {"last_import_at": now_iso(), "last_import_to": max(parsed["date_to"], account.get("last_import_to") or ""),
+              "balance_cents": balance, "balance_date": balance_date}
     await db.bank_accounts.update_one({"id": account_id}, {"$set": update})
     await db.statement_imports.insert_one({
-        "id": new_id(), "account_id": account_id, "company_id": account["company_id"],
+        "id": import_id, "account_id": account_id, "company_id": account["company_id"],
         "filename": file.filename, "format": parsed["format"], "imported": len(new),
-        "duplicates": len(existing), "date_from": parsed["date_from"], "date_to": parsed["date_to"],
+        "duplicates": len(existing) + len(similar) - len(chosen & set(similar)),
+        "date_from": parsed["date_from"], "date_to": parsed["date_to"],
+        "balance_before_cents": account.get("balance_cents", 0), "balance_before_date": account.get("balance_date"),
+        "balance_after_cents": balance, "first_import": not account.get("last_import_at"),
         "imported_by": user["id"], "imported_by_name": user.get("name", ""), "at": now_iso(),
     })
     await audit.log(user, "estratto_conto_importato", account["company_id"], file.filename,
                     {"nuovi": len(new), "doppioni": len(existing), "conto": account["iban_masked"]})
-    return {"imported": len(new), "duplicates": len(existing), "balance_updated": balance_updated,
+    return {"imported": len(new), "duplicates": len(existing) + len(similar) - len(chosen & set(similar)), "balance_updated": True,
             "account": public_account(await db.bank_accounts.find_one({"id": account_id}, {"_id": 0}))}
+
+
+async def _import_transactions(db, record: dict) -> list[dict]:
+    q = {"account_id": record["account_id"], "import_id": record["id"]}
+    txs = await db.transactions.find(q, {"_id": 0}).to_list(50000)
+    if txs or "balance_before_cents" in record:
+        return txs
+    # import fatti prima di questa versione: si riconoscono dal periodo e dall'ora di caricamento
+    at = record["at"]
+    since = (datetime.fromisoformat(at) - timedelta(minutes=5)).isoformat()
+    return await db.transactions.find({"account_id": record["account_id"], "source": "import", "import_id": {"$exists": False},
+                                       "date": {"$gte": record["date_from"], "$lte": record["date_to"]},
+                                       "created_at": {"$gte": since, "$lte": at}}, {"_id": 0}).to_list(50000)
+
+
+@router.delete("/statement-imports/{import_id}")
+async def undo_import(import_id: str, user: dict = Depends(get_current_user)):
+    db = get_db()
+    record = await db.statement_imports.find_one({"id": import_id}, {"_id": 0})
+    if not record or record.get("undone_at"):
+        raise HTTPException(404, "Caricamento non trovato.")
+    account, _ = await load("bank_accounts", record["account_id"], user, "manage_banks")
+    txs = await _import_transactions(db, record)
+    locked = [t for t in txs if t.get("status") == "riconciliato" or t.get("intercompany")]
+    if locked:
+        raise HTTPException(409, f"{len(locked)} movimenti di questo caricamento sono già abbinati a fatture o scadenze: "
+                                 "togli prima l'abbinamento dalla pagina Movimenti, poi annulla il caricamento.")
+    ids = [t["id"] for t in txs]
+    if ids:
+        await db.transactions.delete_many({"id": {"$in": ids}})
+        await sync_transactions(db, [t["id"] for t in txs if t.get("status") == "escluso" or t.get("category_manual")])
+    others = await db.statement_imports.find({"account_id": account["id"], "id": {"$ne": import_id}, "undone_at": None},
+                                             {"_id": 0}).sort("at", -1).to_list(1000)
+    is_last = not others or others[0]["at"] < record["at"]
+    if "balance_before_cents" in record and is_last:
+        balance, balance_date = record["balance_before_cents"], record.get("balance_before_date") or account.get("balance_date")
+    else:
+        balance, balance_date = account.get("balance_cents", 0) - sum(t["amount_cents"] for t in txs), account.get("balance_date")
+    update = {"balance_cents": balance, "balance_date": balance_date,
+              "last_import_to": max((o["date_to"] for o in others), default=None)}
+    if not others:
+        update["last_import_at"] = None
+    await db.bank_accounts.update_one({"id": account["id"]}, {"$set": update})
+    await db.statement_imports.update_one({"id": import_id}, {"$set": {"undone_at": now_iso(), "undone_by_name": user.get("name", ""),
+                                                                       "removed": len(ids)}})
+    await audit.log(user, "estratto_conto_annullato", account["company_id"], record.get("filename"),
+                    {"movimenti_tolti": len(ids), "conto": account["iban_masked"]})
+    return {"removed": len(ids), "account": public_account(await db.bank_accounts.find_one({"id": account["id"]}, {"_id": 0}))}
 
 
 @router.get("/bank-accounts/{account_id}/imports")

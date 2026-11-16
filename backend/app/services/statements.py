@@ -40,6 +40,12 @@ def parse_date_any(value) -> str | None:
         return value.date().isoformat()
     if isinstance(value, date):
         return value.isoformat()
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        # data di Excel salvata come numero (giorni dal 30/12/1899)
+        if 30000 <= value <= 70000:
+            from datetime import timedelta
+            return (date(1899, 12, 30) + timedelta(days=int(value))).isoformat()
+        return None
     text = str(value).strip()
     m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", text)
     if m:
@@ -166,7 +172,16 @@ def _find_header_row(rows: list[list]) -> int:
                          "Controlla che il file sia l'elenco dei movimenti.")
 
 
-def _rows_to_movements(headers: list[str], data_rows: list[list], mapping: dict) -> tuple[list[dict], list[str], int | None, str | None]:
+def _balance_row(row) -> int | None:
+    """Righe «Saldo iniziale / Saldo finale» dentro la tabella: restituisce l'importo."""
+    if not any(_norm(c).startswith(("saldo", "nuovo saldo")) for c in row if isinstance(c, str)):
+        return None
+    values = [parse_amount_any(c) for c in row if not isinstance(c, (datetime, date)) and parse_date_any(c) is None]
+    values = [v for v in values if v is not None]
+    return values[-1] if values else None
+
+
+def _rows_to_movements(headers: list[str], data_rows: list[list], mapping: dict) -> tuple[list[dict], list[str], int | None, str | None, int | None]:
     if "date" not in mapping:
         raise StatementError("Non trovo la colonna con la data del movimento.")
     if "amount" not in mapping and not ("debit" in mapping or "credit" in mapping):
@@ -174,12 +189,20 @@ def _rows_to_movements(headers: list[str], data_rows: list[list], mapping: dict)
     movements, warnings = [], []
     balance_cents, balance_date = None, None
     skipped = 0
+    opening_row = closing_row = None
 
     def cell(row, idx):
         return row[idx] if idx is not None and idx < len(row) else None
 
     for row in data_rows:
         if not any(str(c).strip() for c in row if c is not None):
+            continue
+        sal = _balance_row(row)
+        if sal is not None:
+            if movements:
+                closing_row = sal
+            elif opening_row is None:
+                opening_row = sal
             continue
         d = parse_date_any(cell(row, mapping["date"]))
         if not d:
@@ -213,7 +236,9 @@ def _rows_to_movements(headers: list[str], data_rows: list[list], mapping: dict)
     if skipped:
         warnings.append(f"{skipped} {'riga ignorata' if skipped == 1 else 'righe ignorate'} perché senza data "
                         "o importo validi (es. totali o righe di intestazione).")
-    return movements, warnings, balance_cents, balance_date
+    if closing_row is not None and balance_cents is None:
+        balance_cents, balance_date = closing_row, max(m["date"] for m in movements)
+    return movements, warnings, balance_cents, balance_date, opening_row
 
 
 def _decode(data: bytes) -> str:
@@ -250,6 +275,69 @@ def _table_from_xlsx(data: bytes) -> list[list]:
     return best
 
 
+def _table_from_xls(data: bytes) -> list[list]:
+    import xlrd
+    try:
+        wb = xlrd.open_workbook(file_contents=data)
+    except Exception:
+        raise StatementError("Il file Excel (.xls) non si apre: salvalo come .xlsx o CSV.")
+    best = []
+    for sh in wb.sheets():
+        rows = []
+        for r in range(sh.nrows):
+            row = []
+            for c in range(sh.ncols):
+                cell = sh.cell(r, c)
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    try:
+                        row.append(xlrd.xldate_as_datetime(cell.value, wb.datemode))
+                        continue
+                    except Exception:  # noqa: BLE001
+                        pass
+                row.append(cell.value)
+            rows.append(row)
+        try:
+            _find_header_row(rows)
+            return rows
+        except StatementError:
+            best = best or rows
+    return best
+
+
+def _table_from_html(data: bytes) -> list[list]:
+    """Molti home banking scaricano «Excel» che in realtà è una pagina HTML con una tabella."""
+    from html.parser import HTMLParser
+
+    class P(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.rows, self.row, self.cell = [], None, None
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "tr":
+                self.row = []
+            elif tag in {"td", "th"} and self.row is not None:
+                self.cell = []
+            elif tag == "br" and self.cell is not None:
+                self.cell.append(" ")
+
+        def handle_endtag(self, tag):
+            if tag in {"td", "th"} and self.row is not None and self.cell is not None:
+                self.row.append(re.sub(r"\s+", " ", "".join(self.cell)).strip())
+                self.cell = None
+            elif tag == "tr" and self.row is not None:
+                self.rows.append(self.row)
+                self.row = None
+
+        def handle_data(self, d):
+            if self.cell is not None:
+                self.cell.append(d)
+
+    p = P()
+    p.feed(_decode(data))
+    return p.rows
+
+
 def _guess_header_row(rows: list[list], mapping: dict | None) -> int:
     """Quando i nomi delle colonne non sono riconoscibili: -1 significa 'nessuna riga di intestazione'."""
     if mapping and "date" in mapping:
@@ -278,7 +366,7 @@ def parse_table(rows: list[list], mapping: dict | None = None) -> dict:
     use = mapping or detected
     base = {"headers": headers, "mapping": use, "detected_mapping": detected, "iban": None}
     try:
-        movements, warnings, bal, bal_date = _rows_to_movements(headers, rows[h + 1:], use)
+        movements, warnings, bal, bal_date, opening = _rows_to_movements(headers, rows[h + 1:], use)
     except StatementError as e:
         if mapping:
             raise
@@ -286,8 +374,15 @@ def parse_table(rows: list[list], mapping: dict | None = None) -> dict:
         preview_rows = [[("" if c is None else str(c)) for c in r] for r in rows[h + 1:h + 6]]
         return {**base, "movements": [], "warnings": [], "needs_mapping": True, "error": str(e),
                 "raw_rows": preview_rows, "closing_balance_cents": None, "closing_balance_date": None}
-    return {**base, "movements": movements, "warnings": warnings, "needs_mapping": False,
-            "closing_balance_cents": bal, "closing_balance_date": bal_date}
+    out = {**base, "movements": movements, "warnings": warnings, "needs_mapping": False,
+           "opening_balance_cents": opening, "closing_balance_cents": bal,
+           "closing_balance_date": bal_date}
+    if opening is None and bal is not None and "balance" in use:
+        # colonna Saldo: il saldo prima del primo movimento del file
+        out["opening_balance_cents"] = bal - sum(m["amount_cents"] for m in movements)
+    elif out["opening_balance_cents"] is not None and bal is not None:
+        out["balance_check"] = "ok" if out["opening_balance_cents"] + sum(m["amount_cents"] for m in movements) == bal else "mismatch"
+    return out
 
 
 # ---------------------------------------------------------------- CAMT.053 / .052
@@ -456,8 +551,11 @@ def detect_format(filename: str, data: bytes) -> str:
         return "pdf"
     if data[:2] == b"PK" or name.endswith(".xlsx"):
         return "xlsx"
-    if name.endswith(".xls") and data[:4] == b"\xd0\xcf\x11\xe0":
-        raise StatementError("Il formato .xls (Excel vecchio) non è supportato: salvalo come .xlsx o CSV.")
+    if data[:4] == b"\xd0\xcf\x11\xe0":
+        return "xls"
+    low = head[:2000].lower()
+    if b"<table" in low or b"<html" in low:
+        return "html"
     if head.startswith(b"<") or b"<Document" in head:
         return "camt"
     first = _decode(data[:2000]).splitlines()[:3]
@@ -466,7 +564,7 @@ def detect_format(filename: str, data: bytes) -> str:
     return "csv"
 
 
-FORMAT_LABELS = {"csv": "CSV", "xlsx": "Excel", "camt": "CAMT.053 (XML)", "cbi": "CBI", "pdf": "PDF"}
+FORMAT_LABELS = {"csv": "CSV", "xlsx": "Excel", "xls": "Excel (.xls)", "html": "Excel (.xls)", "camt": "CAMT.053 (XML)", "cbi": "CBI", "pdf": "PDF"}
 
 
 def parse_statement(filename: str, data: bytes, mapping: dict | None = None, card: bool = False) -> dict:
@@ -478,6 +576,10 @@ def parse_statement(filename: str, data: bytes, mapping: dict | None = None, car
         result = parse_pdf(data, card)
     elif fmt == "xlsx":
         result = parse_table(_table_from_xlsx(data), mapping)
+    elif fmt == "xls":
+        result = parse_table(_table_from_xls(data), mapping)
+    elif fmt == "html":
+        result = parse_table(_table_from_html(data), mapping)
     elif fmt == "camt":
         result = parse_camt(data)
     elif fmt == "cbi":

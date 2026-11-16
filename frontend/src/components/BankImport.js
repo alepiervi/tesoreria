@@ -89,7 +89,147 @@ const MAP_FIELDS = [
   ["balance", "Saldo", false],
 ];
 
-/** Import dell'estratto conto: anteprima, eventuale scelta delle colonne, conferma. */
+const rowCounts = (r, include) => !r.duplicate && (!r.similar || include.has(r.index));
+
+/** Elenco completo dei movimenti letti: i possibili doppioni si spuntano per importarli comunque. */
+function PreviewRows({ rows, include, onToggle }) {
+  return (
+    <div className="max-h-[420px] overflow-auto rounded-xl border border-line" data-testid="import-preview-rows">
+      <table className="w-full min-w-[620px] text-sm">
+        <thead className="sticky top-0 bg-white">
+          <tr className="table-head text-left">
+            <th className="px-3 py-2">Data</th><th className="py-2 pr-3">Descrizione</th><th className="py-2 pr-3 text-right">Importo</th><th className="py-2 pr-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((m) => (
+            <tr key={m.index} className={`border-b border-soft align-top ${m.duplicate || (m.similar && !include.has(m.index)) ? "opacity-60" : ""}`}
+              data-testid={`import-row-${m.index}`}>
+              <td className="whitespace-nowrap px-3 py-2 text-muted">{fmtDate(m.date, { year: true })}</td>
+              <td className="py-2 pr-3">
+                <span data-testid={`import-row-desc-${m.index}`}>{m.description}</span>
+                {m.similar && <span className="block text-xs text-warn-text">Simile a un movimento già presente del {fmtDate(m.similar.date, { year: true })}: {m.similar.description}</span>}
+              </td>
+              <td className="whitespace-nowrap py-2 pr-3 text-right"><Amount cents={m.amount_cents} /></td>
+              <td className="whitespace-nowrap py-2 pr-3">
+                {m.duplicate && <Badge>Già presente</Badge>}
+                {m.similar && (
+                  <label className="flex min-h-[36px] items-center gap-2 text-xs font-semibold">
+                    <input type="checkbox" className="h-[18px] w-[18px]" checked={include.has(m.index)} onChange={() => onToggle(m.index)}
+                      data-testid={`import-include-${m.index}`} />
+                    Importa comunque
+                  </label>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Saldo dopo l'import: base + movimenti scelti, con eventuale correzione a mano. */
+function BalanceBox({ preview, include, balance, setBalance, balanceDate, setBalanceDate }) {
+  const plan = preview.balance_plan;
+  const [manual, setManual] = useState(false);
+  const sum = preview.rows.filter((r) => rowCounts(r, include) && (!plan.after_date || r.date > plan.after_date))
+    .reduce((t, r) => t + r.amount_cents, 0);
+  const after = plan.mode === "file" ? plan.base_cents : plan.base_cents + sum;
+  const fileClosing = preview.closing_balance_cents;
+  const differs = plan.mode === "sum" && fileClosing !== null && fileClosing !== undefined && fileClosing !== after;
+  return (
+    <div className="flex flex-col gap-3">
+      {preview.balance_check === "ok" && <Notice>I conti tornano: saldo iniziale + movimenti letti = saldo finale del file.</Notice>}
+      <Notice>
+        <span data-testid="import-balance-after">Saldo del conto dopo l'import: <strong>{eur(after)}</strong></span>
+        {plan.mode === "sum" ? ` (${plan.base_label} ${eur(plan.base_cents)} ${sum < 0 ? "−" : "+"} movimenti importati ${eur(Math.abs(sum))}${plan.after_date ? `, solo quelli dopo il ${fmtDate(plan.after_date, { year: true })}` : ""}).` : " (letto dall'estratto)."}
+      </Notice>
+      {differs && <Notice tone="orange">Il saldo finale scritto nel file è {eur(fileClosing)}: differenza di {eur(fileClosing - after)}. Controlla i movimenti o correggi il saldo qui sotto.</Notice>}
+      {!manual ? (
+        <button type="button" className="min-h-[40px] self-start text-sm font-semibold text-accent" onClick={() => setManual(true)} data-testid="import-balance-manual-toggle">
+          Il saldo non è giusto? Scrivilo a mano
+        </button>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Saldo corretto del conto" htmlFor="st-bal" hint="Se lo scrivi, sostituisce il calcolo automatico.">
+            <input id="st-bal" inputMode="decimal" className="input" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="12.725,20" data-testid="import-balance-input" />
+          </Field>
+          <Field label="Alla data" htmlFor="st-bal-date">
+            <input id="st-bal-date" type="date" className="input" value={balanceDate} onChange={(e) => setBalanceDate(e.target.value)} />
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Caricamenti fatti su un conto, con la possibilità di annullarli. */
+export function ImportsHistoryModal({ account, onClose, onDone }) {
+  const [list, setList] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
+  const [ask, setAsk] = useState(null);
+
+  useEffect(() => {
+    if (!account) return;
+    setList(null);
+    setAsk(null);
+    setError("");
+    api.get(`/bank-accounts/${account.id}/imports`).then((r) => setList(r.data)).catch((e) => setError(errorMessage(e)));
+  }, [account]);
+
+  if (!account) return null;
+
+  const undo = async (rec) => {
+    setBusy(rec.id);
+    setError("");
+    try {
+      const res = await api.delete(`/statement-imports/${rec.id}`);
+      setAsk(null);
+      onDone(res.data);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <Modal open wide onClose={onClose} title={`Caricamenti · ${account.bank_name} ${account.iban_masked}`}
+      footer={<Button variant="secondary" onClick={onClose}>Chiudi</Button>}>
+      <div className="flex flex-col gap-3" data-testid="imports-history">
+        <ErrorBox>{error}</ErrorBox>
+        {!list ? <Loading /> : list.length === 0 ? <p className="text-sm text-muted">Nessun estratto conto caricato.</p> : (
+          <ul className="divide-y divide-soft">
+            {list.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-3 py-3" data-testid={`import-history-${r.id}`}>
+                <span className="min-w-[200px] flex-1 text-sm">
+                  <span className="font-semibold">{r.filename}</span>
+                  <span className="block text-xs text-muted">
+                    {r.imported} movimenti dal {fmtDate(r.date_from, { year: true })} al {fmtDate(r.date_to, { year: true })} · caricato il {fmtDate(r.at?.slice(0, 10), { year: true })}{r.imported_by_name ? ` da ${r.imported_by_name}` : ""}
+                  </span>
+                </span>
+                {r.undone_at ? <Badge>Annullato · {r.removed} movimenti tolti</Badge> : ask === r.id ? (
+                  <span className="flex flex-wrap items-center gap-2 text-sm">
+                    Tolgo i movimenti di questo caricamento?
+                    <Button variant="secondary" onClick={() => setAsk(null)}>No</Button>
+                    <Button loading={busy === r.id} onClick={() => undo(r)} data-testid={`import-undo-confirm-${r.id}`}>Sì, annulla</Button>
+                  </span>
+                ) : (
+                  <Button variant="secondary" onClick={() => setAsk(r.id)} data-testid={`import-undo-${r.id}`}>Annulla import</Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Notice>Annullando un caricamento tolgo i suoi movimenti e correggo il saldo: poi puoi ricaricare il file giusto.</Notice>
+      </div>
+    </Modal>
+  );
+}
+
+/** Import dell'estratto conto: anteprima completa, possibili doppioni da confermare, saldo calcolato. */
 export function ImportStatementModal({ account, onClose, onDone }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -98,6 +238,7 @@ export function ImportStatementModal({ account, onClose, onDone }) {
   const [balance, setBalance] = useState("");
   const [balanceDate, setBalanceDate] = useState("");
   const [invert, setInvert] = useState(false);
+  const [include, setInclude] = useState(new Set());
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const fileRef = useRef(null);
@@ -110,17 +251,19 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     setBalance("");
     setBalanceDate("");
     setInvert(false);
+    setInclude(new Set());
     setError("");
   }, [account]);
 
   if (!account) return null;
 
-  const form = (withBalance) => {
+  const form = () => {
     const fd = new FormData();
     fd.append("file", file);
     if (mapping) fd.append("mapping", JSON.stringify(mapping));
     if (invert) fd.append("invert", "true");
-    if (withBalance && balance.trim()) {
+    if (include.size) fd.append("include", JSON.stringify([...include]));
+    if (balance.trim()) {
       fd.append("closing_balance", balance);
       fd.append("closing_balance_date", balanceDate);
     }
@@ -131,6 +274,7 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     if (!f) return;
     setBusy("preview");
     setError("");
+    setInclude(new Set());
     try {
       const fd = new FormData();
       fd.append("file", f);
@@ -165,7 +309,7 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     setBusy("import");
     setError("");
     try {
-      const res = await api.post(`/bank-accounts/${account.id}/statement/import`, form(true));
+      const res = await api.post(`/bank-accounts/${account.id}/statement/import`, form());
       onDone(res.data);
     } catch (e) {
       setError(errorMessage(e));
@@ -173,6 +317,12 @@ export function ImportStatementModal({ account, onClose, onDone }) {
       setBusy("");
     }
   };
+
+  const toggleInclude = (i) => setInclude((s) => {
+    const next = new Set(s);
+    next.has(i) ? next.delete(i) : next.add(i);
+    return next;
+  });
 
   const setMap = (field, value) => {
     setMapping((m) => {
@@ -193,31 +343,32 @@ export function ImportStatementModal({ account, onClose, onDone }) {
   };
 
   const hasRows = preview && !preview.needs_mapping && preview.count > 0;
+  const toImport = hasRows ? preview.new_count + include.size : 0;
 
   return (
     <Modal open wide onClose={onClose} title={`Importa estratto conto · ${account.bank_name} ${account.iban_masked}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Annulla</Button>
-          <Button onClick={submit} loading={busy === "import"} disabled={!hasRows || preview.new_count === 0}>
-            {hasRows ? `Importa ${preview.new_count} movimenti` : "Importa"}
+          <Button onClick={submit} loading={busy === "import"} disabled={!hasRows || (toImport === 0 && !balance.trim())} data-testid="import-submit">
+            {hasRows ? `Importa ${toImport} movimenti` : "Importa"}
           </Button>
         </>
       }>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <input ref={fileRef} id="st-file" type="file" className="sr-only"
-            accept=".pdf,.csv,.txt,.xlsx,.xml,application/pdf,text/csv,application/xml,text/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          <input ref={fileRef} id="st-file" type="file" className="sr-only" data-testid="import-file-input"
+            accept=".pdf,.csv,.txt,.xlsx,.xls,.xml,application/pdf,text/csv,application/xml,text/xml,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={(e) => pickFile(e.target.files?.[0] || null)} />
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>{file ? "Cambia file" : "Scegli il file"}</Button>
-          <span className="text-sm text-muted">{file ? file.name : "PDF, Excel (.xlsx), CSV, CAMT.053 (.xml) o CBI (.txt)"}</span>
+          <span className="text-sm text-muted">{file ? file.name : "PDF, Excel (.xlsx o .xls), CSV, CAMT.053 (.xml) o CBI (.txt)"}</span>
         </div>
         {!file && (
           <Notice>
             {account.account_type === "carta"
               ? "Carica l'estratto mensile della carta, anche in PDF. Gli importi senza segno sono spese; rimborsi e pagamento del saldo diventano entrate della carta."
               : "Va bene anche il PDF dell'estratto conto. Se l'home banking lo permette, il file Excel o CSV («Lista movimenti» o «Esporta movimenti») è ancora più preciso; per i conti aziendali anche CAMT.053 o CBI."}
-            {" "}Puoi caricare anche periodi che si sovrappongono: i movimenti già presenti non vengono duplicati.
+            {" "}Puoi caricare anche periodi che si sovrappongono: i movimenti già presenti non vengono duplicati e quelli simili te li faccio confermare.
           </Notice>
         )}
         <ErrorBox>{error}</ErrorBox>
@@ -228,12 +379,16 @@ export function ImportStatementModal({ account, onClose, onDone }) {
             {preview.needs_mapping ? (
               <Notice tone="orange">{preview.error} Indica qui sotto quali colonne contengono data, importo e descrizione.</Notice>
             ) : (
-              <div className="flex flex-wrap items-center gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="import-preview-summary">
                 <Badge tone="blue">{preview.format_label}</Badge>
                 <span>{preview.count} movimenti dal {fmtDate(preview.date_from, { year: true })} al {fmtDate(preview.date_to, { year: true })}</span>
                 <span className="text-muted">· entrate {eur(preview.total_in_cents)} · uscite {eur(preview.total_out_cents)}</span>
                 {preview.duplicate_count > 0 && <Badge>{preview.duplicate_count} già presenti</Badge>}
+                {preview.similar_count > 0 && <Badge tone="orange">{preview.similar_count} possibili doppioni</Badge>}
               </div>
+            )}
+            {preview.similar_count > 0 && (
+              <Notice tone="orange">{preview.similar_count} movimenti hanno lo stesso importo e una data vicina a movimenti già presenti sul conto: non li importo, a meno che tu non spunti «Importa comunque».</Notice>
             )}
             {preview.warnings?.map((w) => <Notice key={w} tone="orange">{w}</Notice>)}
             {!preview.needs_mapping && (
@@ -293,42 +448,10 @@ export function ImportStatementModal({ account, onClose, onDone }) {
 
             {hasRows && (
               <>
-                <div className="overflow-x-auto rounded-xl border border-line">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead>
-                      <tr className="table-head text-left">
-                        <th className="px-3 py-2">Data</th><th className="py-2 pr-3">Descrizione</th><th className="py-2 pr-3 text-right">Importo</th><th className="py-2 pr-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.sample.map((m, n) => (
-                        <tr key={n} className={`border-b border-soft ${m.duplicate ? "opacity-50" : ""}`}>
-                          <td className="whitespace-nowrap px-3 py-2 text-muted">{fmtDate(m.date, { year: true })}</td>
-                          <td className="py-2 pr-3">{m.description}</td>
-                          <td className="whitespace-nowrap py-2 pr-3 text-right"><Amount cents={m.amount_cents} /></td>
-                          <td className="py-2 pr-3">{m.duplicate && <Badge>Già presente</Badge>}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {preview.count > preview.sample.length && (
-                    <p className="px-3 py-2 text-xs text-muted">…e altri {preview.count - preview.sample.length} movimenti</p>
-                  )}
-                </div>
-
-                {preview.closing_balance_cents !== null && preview.closing_balance_cents !== undefined ? (
-                  <Notice>Saldo letto dal file: <strong>{eur(preview.closing_balance_cents)}</strong> al {fmtDate(preview.closing_balance_date, { year: true })}. Verrà aggiornato il saldo del conto.</Notice>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Saldo finale dell'estratto conto" htmlFor="st-bal" hint="Il file non contiene il saldo: scrivilo per tenere aggiornata la liquidità.">
-                      <input id="st-bal" inputMode="decimal" className="input" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="12.725,20" />
-                    </Field>
-                    <Field label="Alla data" htmlFor="st-bal-date">
-                      <input id="st-bal-date" type="date" className="input" value={balanceDate} onChange={(e) => setBalanceDate(e.target.value)} />
-                    </Field>
-                  </div>
-                )}
-                {preview.new_count === 0 && <Notice tone="orange">Tutti i movimenti di questo file sono già stati importati.</Notice>}
+                <PreviewRows rows={preview.rows} include={include} onToggle={toggleInclude} />
+                {preview.count > preview.rows.length && <p className="text-xs text-muted">Mostro i primi {preview.rows.length} movimenti su {preview.count}.</p>}
+                <BalanceBox preview={preview} include={include} balance={balance} setBalance={setBalance} balanceDate={balanceDate} setBalanceDate={setBalanceDate} />
+                {toImport === 0 && <Notice tone="orange">Nessun movimento nuovo da importare in questo file.</Notice>}
               </>
             )}
           </>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ImportStatementModal, ManualAccountModal } from "../components/BankImport";
+import { ImportStatementModal, ImportsHistoryModal, ManualAccountModal } from "../components/BankImport";
 import { ForecastChart, MonthlyChart, forecastNote } from "../components/Charts";
 import ScenarioModal from "../components/ScenarioModal";
 import { Amount, Badge, Button, Card, ErrorBox, Field, Loading, Modal, Notice, PageHeader, Stat, useToast } from "../components/ui";
@@ -23,6 +23,7 @@ export default function CompanyPage() {
   const [convert, setConvert] = useState(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [importFor, setImportFor] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [openWeek, setOpenWeek] = useState(null);
 
@@ -133,7 +134,8 @@ export default function CompanyPage() {
                       </span>
                       {canBanks && !off && (
                         <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" className="min-h-[40px]" onClick={() => setImportFor(a)}>{a.account_type === "carta" ? "Importa estratto carta" : "Importa estratto conto"}</Button>
+                          <Button variant="secondary" className="min-h-[40px]" onClick={() => setImportFor(a)} data-testid={`import-statement-${a.id}`}>{a.account_type === "carta" ? "Importa estratto carta" : "Importa estratto conto"}</Button>
+                          {a.last_import_at && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => setHistoryFor(a)} data-testid={`import-history-btn-${a.id}`}>Caricamenti</Button>}
                           {bankAuto && a.account_type !== "carta" && <Button variant="ghost" className="min-h-[40px] px-2" onClick={() => { setConvert(a); setConnectOpen(true); }}>Rendi automatico</Button>}
                         </div>
                       )}
@@ -248,6 +250,13 @@ export default function CompanyPage() {
       <ScenarioModal open={scenarioOpen} companyId={companyId} title={company.name} onClose={() => setScenarioOpen(false)} />
       <ManualAccountModal open={manualOpen} companyId={companyId} accounts={data?.accounts || []} onClose={() => setManualOpen(false)}
         onDone={(acc) => { setManualOpen(false); toast("Conto aggiunto: ora importa l'estratto conto"); load(); setImportFor(acc); }} />
+      <ImportsHistoryModal account={historyFor} onClose={() => setHistoryFor(null)}
+        onDone={(r) => {
+          setHistoryFor(null);
+          toast(`Caricamento annullato: ${r.removed} movimenti tolti`);
+          load();
+          refreshCounts();
+        }} />
       <ImportStatementModal account={importFor} onClose={() => setImportFor(null)}
         onDone={(r) => {
           setImportFor(null);
