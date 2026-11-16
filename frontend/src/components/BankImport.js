@@ -329,6 +329,8 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     setBalanceDate("");
     setInvert(false);
     setInclude(new Set());
+    setExclude(new Set());
+    setConfirm(false);
     setError("");
   }, [account]);
 

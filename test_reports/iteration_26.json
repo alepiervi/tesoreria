@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only test of the Banco BPM PDF import fix (Riassunto scalare / summary box) on company QA Azienda Srl. Conto A with bpm_trimestrale.pdf: PASS (exactly 5 real movements, no scalare/number-only rows, green 'I conti tornano ... 12.516,75 €', import-balance-after 12.516,75 €, toast '5 movimenti importati', account 12.516,75 €). Conto B with bpm_sbagliato.pdf: FAIL on the key step. The preview showed NO red import-mismatch box, the green 'I conti tornano ... 12.516,75 €' notice, and an enabled 'Importa 5 movimenti' button. Cause: the text parser correctly finds a mismatch (closing 12.504,25), which triggers the AI fallback. The AI reads saldo_finale 12.516,75 from the page-1 summary box, gets balance_check ok, and replaces the text result. The 'Letto con l'intelligenza artificiale' banner is shown. The mismatch UI works when a real mismatch is created by excluding rows: excluding row 2 gives a diff of 12,50 and disables the button; import-confirm-mismatch enables and disables it correctly. Excluding row 4 plus confirming shows 'Importa 4 movimenti' with row 4 struck through, the toast '4 movimenti importati' appears, and the balance is 11.536,75 €. Correggi saldo: 9.999,99 is saved, the toast 'Saldo aggiornato' appears, and the account shows 9.999,99 €.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/bank-accounts/{id}/statement/preview (+ /import)", "issue": "The AI fallback (banks.py _read_statement lines 337-342) replaces a correct text-parser 'mismatch' result whenever the AI result balances. If the PDF has two conflicting final balances (summary box 12.516,75 vs the 'SALDO FINALE AL 31/01/2026 12.504,25' line), the AI picks the one that matches and the real mismatch is hidden from the user. The import is then allowed without confirmation, so the safeguard this feature was meant to add is bypassed.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /statement/import", "issue": "After importing Conto A, the account shows 'saldo al 20 gen 2026' (last movement date) although the file states SALDO FINALE AL 31/01/2026. The balance date should probably be closing_balance_date."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ImportStatementModal useEffect([account])", "issue": "exclude and confirm are not reset when the account changes (only runPreview resets them). Harmless today because a new file triggers runPreview, but inconsistent.", "selector": "[data-testid=import-exclude-*]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Conto B bpm_sbagliato.pdf preview", "issue": "Expected the red import-mismatch box (12,50 €) and a disabled submit button. Got the green 'I conti tornano' notice and an enabled 'Importa 5 movimenti' button, because the AI-parsed result overrode the text parser.", "affected_selectors": ["[data-testid=import-mismatch]", "[data-testid=import-submit]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "In banks.py _read_statement: do not let the AI result replace a text-parser result whose balance_check is 'mismatch' when the text parser found the same movements, or when the AI closing balance differs from the one in an explicit 'SALDO FINALE' line. Alternatively, flag conflicting closing balances inside the PDF (summary box vs final line) as a mismatch. A real discrepancy must always reach the user.",
+    "Note: /tmp/bpm_sbagliato.pdf is internally inconsistent (page-1 summary box still says 12.516,75; page-2 line says 12.504,25). Decide which balance has priority and test the AI path too (the pytest suite likely does not run the AI fallback).",
+    "Consider setting the account balance_date to the file's closing_balance_date (31/01) rather than the last movement date (20/01).",
+    "Reset exclude/confirm in the ImportStatementModal useEffect on account change."
+  ],
+  "critical_code_review_comments": [
+    "The _AI_CACHE is in-process and keyed by file hash, so it is lost on restart or across workers; preview and import could then disagree.",
+    "The AI fallback runs on every 'mismatch', which costs an LLM call and can hide real errors (see above)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend only)", "frontend": "80% (4/5 scenario steps pass; the Conto B automatic mismatch detection fails)"},
+  "seed_data_creation": "Per the request: 5 movements were imported into Conto A (balance 12.516,75), 4 movements into Conto B (balance 11.536,75, then manually set to 9.999,99). No QA seed records were deleted.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Company ff4516a8-a824-442c-bb96-4b0552dcdc21; Conto A id ba27458c-62c8-4825-9d36-cddfe408c9d9, Conto B id 68bb5fa5-f0e7-4afe-aaca-96ab0d120d7a. Both now have imports; use 'Caricamenti' -> undo to reset before retesting. Row indices for import-exclude-N are 0-based (2 = COMMISSIONI, 4 = VERSAMENTO CONTANTI). TOTP is generated in-script with hmac (each login waits for a fresh 30s window). The text parser alone gives sbagliato closing 1250425 = mismatch (checked via parse_pdf).",
+  "rca of the issue": "Repro: upload /tmp/bpm_sbagliato.pdf to Conto B. parse_pdf gives opening 1000000, closing 1250425, balance_check 'mismatch'. In banks.py line 337 the mismatch triggers _ai_pdf. The AI returns saldo_finale 12516.75 (from the page-1 summary box) with the same 5 movements, so balance_check is 'ok' and line 342 replaces the parsed result. The frontend fileDiff is then 0, so the green notice shows and the button is enabled. Fix: keep the text result (or force a mismatch) when the text parser found an explicit closing balance that disagrees with the AI's, or require the AI movements to differ before overriding."
+}
