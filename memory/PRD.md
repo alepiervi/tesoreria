@@ -29,6 +29,8 @@ FastAPI + MongoDB (motor) backend in /app/backend (routers in app/routers, servi
 
 - 2026-06: AI usage tracking (ai_usage: tokens only, no content) + owner card "Consumo dell'assistente" in Impostazioni (month cost estimate, by kind/person, 6-month history, optional AI_MONTHLY_BUDGET_USD)
 
+- 2026-06: Provisional passwords: developer creates owners with temp password + lists owners (name/email only) with reset; owner resets collaborators; must_change_password gate (403 except me/password) + ForcePasswordChange screen; reset never touches 2FA
+
 ## Mocked (demo providers)
 None mocked. Not active by choice: open banking, SDI intermediary, PIS payments, WhatsApp (manual alternatives in place)
 

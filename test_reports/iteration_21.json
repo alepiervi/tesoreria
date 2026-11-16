@@ -1,0 +1,17 @@
+{
+  "summary": "I tested this UI follow-up in the frontend only, using Playwright on the public URL. All 3 features pass. (1) On /sviluppatore/titolare I created an owner invite for y@example.com. The 'Link creato' box (owner-invite-link-box) and the pending row appeared. Then I created the owner y@example.com (name TEST_Y) with a provisional password. Without a reload, 'Inviti in attesa' changed to 'Nessun invito in attesa.' and the link box disappeared. The temp box said 'Al primo accesso attiverà anche la verifica in due passaggi.' and the owners list showed the 'password provvisoria' badge. (2) I reset the password of the owner, who had never logged in. The confirm dialog appeared and the temp box said 'Al primo accesso attiverà anche...'. The owner then enrolled 2FA through the API (login, enroll/start, enroll/finish, all 200). A second reset said 'La verifica in due passaggi resta quella già attiva.' (3) /invito/xyz shows 'Invito non valido o già usato.' and the invite-go-login link with href=/login. Clicking it reached /login, which redirected to /sviluppatore because the developer was still logged in.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OwnerInvite.js cancel(): it swallows API errors with .catch(() => {}), so the user gets no feedback if cancelling an invite fails. Minor.",
+    "The developer's 2FA enrollment depends on the recovery-codes 'done' step: a page.goto before clicking recovery-codes-done lost the session. This is expected behaviour, noted for future testers."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (frontend only)", "frontend": "100%"},
+  "seed_data_creation": "Created the owner y@example.com (name TEST_Y) with 2FA enrolled, plus one owner invite that was consumed when the owner was created. I also enrolled 2FA on the developer account through the UI, because login requires it. I lost that TOTP secret, then read it from MongoDB (read-only) to log in again. The developer now has 2FA enabled. The main agent plans to wipe the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The developer has 2FA enabled after this run. On first login, keep totp-secret before clicking recovery-codes-done. Navigate to /sviluppatore/titolare through the sidebar link a[href='/sviluppatore/titolare']. A full page.goto before the recovery-codes step is finished loses the session. No files were left in /app/backend/tests or /app/test_reports/pytest."
+}
