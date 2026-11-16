@@ -49,7 +49,7 @@ export default function DevOwnerInvite() {
 
   return (
     <>
-      <PageHeader title="Invito titolare" subtitle="Il titolare crea le aziende e vede tutti i dati. Tu resti senza accesso ai dati." />
+      <PageHeader title="Titolari" subtitle="Il titolare crea le aziende e vede tutti i dati. Tu resti senza accesso ai dati." />
       <div className="grid gap-4 xl:grid-cols-2">
         <Card title="Nuovo link di invito" subtitle="Valido 7 giorni. Il titolare sceglie da solo la sua password.">
           <form onSubmit={submit} className="flex flex-col gap-4" data-testid="owner-invite-form">

@@ -92,8 +92,8 @@ export default function Members() {
                   )}
                   {user.is_owner && !m.is_me && !m.is_owner && (
                     m.active
-                      ? <Button variant="danger" className="min-h-[40px]" onClick={() => window.confirm(`Bloccare ${m.email} su tutte le aziende?`) && act(() => api.post(`/members/${m.id}/deactivate`), "Utente disattivato")}>Disattiva</Button>
-                      : <Button variant="secondary" className="min-h-[40px]" onClick={() => act(() => api.post(`/members/${m.id}/activate`), "Utente riattivato")}>Riattiva</Button>
+                      ? <Button variant="danger" className="min-h-[40px]" data-testid={`deactivate-${m.id}`} onClick={() => window.confirm(`Bloccare ${m.email} su tutte le aziende?`) && act(() => api.post(`/members/${m.id}/deactivate`), "Utente disattivato")}>Disattiva</Button>
+                      : <Button variant="secondary" className="min-h-[40px]" data-testid={`activate-${m.id}`} onClick={() => act(() => api.post(`/members/${m.id}/activate`), "Utente riattivato")}>Riattiva</Button>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">

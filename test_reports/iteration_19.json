@@ -1,0 +1,39 @@
+{
+  "summary": "Tested provisional passwords and password reset end to end (API + UI). Backend: 45/45 API checks passed (ad-hoc script in /tmp, now deleted). They covered developer owner create, duplicate 400, owner reset, member reset, self 400, other owner 403, developer id 404, the 403 password_change_required gate, temp reuse, weak and wrong-current rejection, session invalidation, the TOTP secret staying unchanged after reset (checked in the DB) and the invite link for a new email. Frontend: found a CRITICAL bug that blocked every forced-change flow in the UI, and applied a one-line fix. After the fix all UI flows passed: developer create and reset, owner login with temp password plus existing TOTP, ForcePasswordChange (reuse, weak and mismatch errors), owner 'Azzera password' on a collaborator, collaborator temp login plus existing TOTP, then forced change, then the app. A new owner created in the UI goes through 2FA enrollment, then forced change, then the app. Invite link for a new email shows 'Scegli una password', not 'current password'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/developer/owners", "issue": "Creating an owner with a temp password does not cancel a pending owner invite for the same email. If the old link is opened later, it is treated as an existing user and asks for the current password (the originally reported confusion)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "lib/auth.js loadSession", "issue": "FIXED BY TESTER. Promise.all([/auth/me, /companies]): /companies returns 403 password_change_required for a must_change_password user, so the catch cleared the token. After password + TOTP the user was silently sent back to an empty login form and never saw ForcePasswordChange. Now /auth/me is fetched first and /companies is skipped when must_change_password is set.", "selector": "[data-testid='force-password-change']", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/sviluppatore/titolare", "issues": ["The page heading still says 'Invito titolare' while the menu label is 'Titolari'", "Owners list shows the email twice ('x@y · x@y') when the name is empty, and leaves a dangling '·' that wraps", "TempPasswordBox always says 'La verifica in due passaggi resta quella già attiva', even right after creating a new owner who has no 2FA yet (misleading on create)"]},
+      {"screen": "Testability", "issues": ["Missing data-testid: login email/password inputs (#email, #password), AcceptInvite name/password inputs and submit, the ForcePasswordChange 'Esci' button, the Members 'Disattiva'/'Riattiva' buttons"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Review and keep the fix in /app/frontend/src/lib/auth.js (loadSession must not call /companies when must_change_password is set)",
+    "In create_owner, delete or expire any pending owner_invite for the same email",
+    "Change the TempPasswordBox note when the account has no 2FA yet (e.g. pass a prop from create vs reset)",
+    "Rename the developer page heading to 'Titolari' and do not repeat the email when the name is empty",
+    "Add the missing data-testids listed above"
+  ],
+  "critical_code_review_comments": [
+    "AuthProvider.refreshCounts calls /dashboard/group for a must_change_password user and gets a 403 (swallowed, harmless). It could also be skipped while must_change_password is set",
+    "reset_password correctly leaves totp_* untouched, bumps token_version and clears the lockout: verified",
+    "PASSWORD_CHANGE_PATHS gate works; there is no /auth/logout endpoint (logout is client-side), and logout-everywhere is allowed"
+  ],
+  "updated_files": ["/app/frontend/src/lib/auth.js"],
+  "success_rate": {"backend": "100%", "frontend": "100% after tester fix (0% before: forced change unreachable)"},
+  "seed_data_creation": "Created TEST users (nuovo.titolare@example.com, test_collab_pw, test_owner2/3/4_pw, test_ui_owner @example.com) and the company 'TEST_Azienda PW'. Users, memberships, invites and the company were deleted by id afterwards. The developer account now has 2FA ENROLLED (it was not before): the DB is wiped by the main agent anyway.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "TOTP codes are single-use per 30s step (totp_last_step): wait for a new step between logins of the same user. /auth/me returns {user:{...}, companies}. Developer password must never be persisted. No test files were left in /app/backend/tests or test_reports/pytest.",
+  "rca of the issue": "Forced password change was unreachable in the UI. Reproduce: log in as a user with must_change_password, enter the TOTP code, and you land back on the login page. Network: POST /auth/login 200, then GET /api/companies 403. Cause: AuthProvider.loadSession ran /auth/me and /companies with Promise.all, so the 403 rejected the whole call and the catch did setToken(null). Mitigation (applied): fetch /auth/me first and skip /companies when must_change_password is set."
+}

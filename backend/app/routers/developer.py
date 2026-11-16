@@ -156,6 +156,7 @@ async def create_owner(body: OwnerCreateIn, user: dict = Depends(developer)):
              "is_owner": True, "active": True, "must_change_password": True, "totp_enabled": False,
              "token_version": 0, "created_at": now_iso()}
     await db.users.insert_one(owner)
+    await db.invites.delete_many({"email": email, "accepted_at": None})
     for c in await db.companies.find({}, {"_id": 0, "id": 1}).to_list(1000):
         await db.memberships.insert_one({"id": new_id(), "user_id": owner["id"], "company_id": c["id"],
                                          "role": "titolare", "created_at": now_iso()})

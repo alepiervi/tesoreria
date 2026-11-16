@@ -10,6 +10,7 @@ export function DevOwners() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [temp, setTemp] = useState(null);
+  const [tempNew, setTempNew] = useState(false);
 
   const load = useCallback(() => {
     api.get("/developer/owners").then((r) => setOwners(r.data)).catch(() => {});
@@ -34,6 +35,7 @@ export function DevOwners() {
     run("create", async () => {
       const r = await api.post("/developer/owners", { email, name });
       setTemp(r.data);
+      setTempNew(true);
       setEmail("");
       setName("");
     });
@@ -41,7 +43,10 @@ export function DevOwners() {
 
   const reset = (o) => {
     if (!window.confirm(`Azzerare la password di ${o.email}? La verifica in due passaggi non cambia.`)) return;
-    run(o.id, async () => setTemp((await api.post(`/developer/owners/${o.id}/reset-password`)).data));
+    run(o.id, async () => {
+      setTemp((await api.post(`/developer/owners/${o.id}/reset-password`)).data);
+      setTempNew(false);
+    });
   };
 
   return (
@@ -57,7 +62,7 @@ export function DevOwners() {
           </Field>
           <div><Button type="submit" loading={busy === "create"} data-testid="owner-create-submit">Crea titolare</Button></div>
         </form>
-        {temp && <div className="mt-4"><TempPasswordBox email={temp.email} password={temp.temporary_password} onClose={() => setTemp(null)} /></div>}
+        {temp && <div className="mt-4"><TempPasswordBox email={temp.email} password={temp.temporary_password} newAccount={tempNew} onClose={() => setTemp(null)} /></div>}
       </Card>
       <Card title="Titolari" subtitle="Solo nome ed email: puoi azzerare la password, la verifica in due passaggi resta invariata">
         {owners.length === 0 ? <p className="text-sm text-muted">Nessun titolare ancora.</p> : (
@@ -65,7 +70,8 @@ export function DevOwners() {
             {owners.map((o) => (
               <li key={o.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                 <span className="flex-1">
-                  <span className="font-semibold">{o.name || o.email}</span> <span className="text-muted">· {o.email}</span>
+                  <span className="font-semibold">{o.name || o.email}</span>
+                  {o.name && <span className="text-muted"> · {o.email}</span>}
                 </span>
                 {o.must_change_password && <Badge tone="orange">password provvisoria</Badge>}
                 {!o.active && <Badge tone="gray">disattivato</Badge>}

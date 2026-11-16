@@ -107,10 +107,10 @@ export default function Login() {
               {step === "credentials" ? (
                 <>
                   <Field label="Email" htmlFor="email">
-                    <input id="email" type="email" autoComplete="username" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <input id="email" data-testid="login-email" type="email" autoComplete="username" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </Field>
                   <Field label="Password" htmlFor="password">
-                    <input id="password" type="password" autoComplete="current-password" required className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <input id="password" data-testid="login-password" type="password" autoComplete="current-password" required className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
                   </Field>
                 </>
               ) : useRecovery ? (

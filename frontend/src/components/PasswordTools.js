@@ -3,13 +3,14 @@ import { api, errorMessage, setToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Button, ErrorBox, Field, Notice } from "./ui";
 
-export function TempPasswordBox({ email, password, onClose }) {
+export function TempPasswordBox({ email, password, onClose, newAccount = false }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4" data-testid="temp-password-box">
       <Notice tone="orange">
         Password provvisoria per <span className="font-semibold">{email}</span>. Comunicala di persona o al telefono:
-        al primo accesso dovrà sceglierne una nuova. La verifica in due passaggi resta quella già attiva.
+        al primo accesso dovrà sceglierne una nuova.{" "}
+        {newAccount ? "Al primo accesso attiverà anche la verifica in due passaggi." : "La verifica in due passaggi resta quella già attiva."}
       </Notice>
       <div className="flex flex-wrap items-center gap-2">
         <code className="rounded-lg bg-soft px-3 py-2 font-mono text-base font-semibold tracking-wide" data-testid="temp-password-value">{password}</code>
@@ -64,7 +65,7 @@ export function ForcePasswordChange() {
           <input id="fp-confirm" type="password" required autoComplete="new-password" className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} data-testid="force-pw-confirm" />
         </Field>
         <Button type="submit" loading={busy} data-testid="force-pw-submit">Salva e continua</Button>
-        <Button variant="ghost" onClick={logout}>Esci</Button>
+        <Button variant="ghost" onClick={logout} data-testid="force-pw-logout">Esci</Button>
       </form>
     </div>
   );

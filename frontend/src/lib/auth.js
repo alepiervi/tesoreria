@@ -39,7 +39,9 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
-      const [me, list] = await Promise.all([api.get("/auth/me"), api.get("/companies")]);
+      const me = await api.get("/auth/me");
+      // Con la password provvisoria il backend risponde 403 su /companies: si mostra solo il cambio password
+      const list = me.data.user?.must_change_password ? { data: [] } : await api.get("/companies");
       setUser(me.data.user);
       setCompanies(list.data);
     } catch {

@@ -86,7 +86,7 @@ export default function AcceptInvite() {
                 </Field>
               </>
             )}
-            <Button type="submit" loading={busy}>Accetta l'invito</Button>
+            <Button type="submit" loading={busy} data-testid="invite-accept-submit">Accetta l'invito</Button>
           </form>
         )}
       </div>
