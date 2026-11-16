@@ -17,10 +17,13 @@ export default function Login() {
   const [step, setStep] = useState("credentials");
   const [setup, setSetup] = useState(null);
   const [pending, setPending] = useState(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => sessionStorage.getItem("login_notice") || "");
   const [busy, setBusy] = useState(false);
   const [idleLoggedOut] = useState(() => wasIdleLogout() || new URLSearchParams(location.search).get("scaduta") === "1");
-  useEffect(() => clearIdleLogout(), []);
+  useEffect(() => {
+    clearIdleLogout();
+    sessionStorage.removeItem("login_notice");
+  }, []);
 
   if (user) return <Navigate to={location.state?.from || "/"} replace />;
 

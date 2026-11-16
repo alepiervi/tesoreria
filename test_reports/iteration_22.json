@@ -1,0 +1,26 @@
+{
+  "summary": "I tested 48-hour expiry of provisional passwords in the backend (API scripts in /tmp, with pymongo to simulate expiry) and in the frontend (Playwright on the public URL). Backend: 24 of 24 checks pass. Frontend: 4 of 5 requested flows pass. One bug: when the forced-change form is submitted after expiry, the API correctly returns 401 and the user is sent back to /login, but the 'scaduta' message is never shown (blank login form). Passing: (1) The developer creates an owner. The API expires_at is 48.0h ahead, and the temp box shows 'Vale fino a 18/11/26, 10:25 (48 ore): poi serve un nuovo azzeramento.' (2) After expires_at is set to 1 minute ago, the owner's login on /login shows the orange ErrorBox 'La password provvisoria è scaduta (vale 48 ore). Chiedi un nuovo azzeramento.' with no crash. A wrong password still gets the generic 'Email o password non corretti.', so the check reveals nothing to a wrong guess. The developer list shows the gray badge 'provvisoria scaduta'. (3) A new reset from the developer UI gives a fresh 48h window, the badge goes back to 'password provvisoria' and the old temp password is rejected. With the new temp password: 2FA enroll in the UI, then forced change, then the app at '/'. In the DB, temp_password_expires_at=None and must_change_password=False. An expired value written after the change has no effect on the session or the login. (4) API: a session opened with the temp password works before expiry. After expiry, /auth/me and /auth/password return 401 with the 'scaduta' detail, and must_change_password stays True. (5) The owner resets a collaborator in the API and on /utenti: the box shows 'Vale fino a ... (48 ore)' and the DB has the matching temp_password_expires_at. The collaborator's login with that temp password after expiry returns 401 'scaduta'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Forced password change after the temp password expires (a session opened with the temp password)", "issue": "POST /api/auth/password returns 401 with the 'scaduta' detail. The global 401 interceptor in frontend/src/lib/api.js (lines 37-40) then calls setToken(null) and window.location.assign('/login'). This full page reload throws away the setError() state in ForcePasswordChange, so the user lands on an empty login form with no explanation. A login with the same temp password would then show the 'scaduta' message, but only after another try. The user is correctly sent back to login.", "affected_selectors": ["[data-testid='force-pw-submit']", "[data-testid='login-form']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Show the expiry reason after the redirect. For example, in the 401 interceptor in lib/api.js, save error.response.data.detail to sessionStorage (e.g. 'login_notice') before window.location.assign('/login'), and have Login.js read it, show it in ErrorBox or Notice, then clear it. Or skip the hard redirect for /auth/password when the detail is the EXPIRED message, let ForcePasswordChange show it, then log out. The same fix helps other 401 causes (session revoked, user deactivated)."
+  ],
+  "critical_code_review_comments": [
+    "passwords.temp_expired: datetime.fromisoformat(exp) <= now_utc() raises TypeError if a value without a timezone is ever stored (legacy data, manual edits). All writes now use an aware isoformat, so the risk is low. A defensive tz fallback would make it robust.",
+    "Login order is correct: the password is checked first, then expiry, so the 'scaduta' message cannot be used to probe whether an account exists or has a temp password.",
+    "Members.js passes newAccount={!tempPw.totp_enabled}. For a collaborator who has never enrolled 2FA, the box says 'Al primo accesso attiverà anche la verifica in due passaggi', which is correct."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (24/24 API checks)", "frontend": "80% (4/5 flows; the expiry message is not shown on the forced-change screen)"},
+  "seed_data_creation": "Users: test_exp_owner@example.com (TEST_ExpOwner, owner, 2FA on), test_exp_ui@example.com (TEST_ExpUI, owner, 2FA on, left with must_change_password=True and an expired temp password), test_exp_collab@example.com (TEST_Collab, amministrazione, temp password valid for 48h). Company TEST_ExpCo plus one consumed invite. The developer now has 2FA enrolled; the TOTP secret is only in Mongo. I deleted the secret files from /tmp. The main agent plans to wipe the DB.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The browser_automation tool runs in the same container: subprocess with python3 + pymongo + pyotp works inside scripts, so expiry can be simulated in the middle of a flow. Reusing the same TOTP code within 30s is rejected (replay protection): wait 31s between logins of the same user. To check the fix: open forced change with a temp password, set temp_password_expires_at in the past, submit, and expect /login to show the 'scaduta' text. Nothing was written to /app/backend/tests or /app/test_reports/pytest."
+}
