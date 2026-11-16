@@ -42,6 +42,7 @@ import Consolidated from "./pages/group/Consolidated";
 import GroupCash from "./pages/group/GroupCash";
 import Activations from "./pages/commissions/Activations";
 import Guide from "./pages/Guide";
+import { ForcePasswordChange } from "./components/PasswordTools";
 import DevErrors from "./pages/developer/Errors";
 import DevOwnerInvite from "./pages/developer/OwnerInvite";
 import DevStatus from "./pages/developer/Status";
@@ -53,6 +54,7 @@ function Protected({ children }) {
   const location = useLocation();
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (user.must_change_password) return <ForcePasswordChange />;
   return children;
 }
 

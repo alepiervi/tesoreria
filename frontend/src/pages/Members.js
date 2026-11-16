@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Loading, Modal, Notice, PageHeader, useToast } from "../components/ui";
+import { TempPasswordBox } from "../components/PasswordTools";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_LABELS, fmtDateTime } from "../lib/format";
@@ -13,6 +14,7 @@ export default function Members() {
   const [error, setError] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [newLink, setNewLink] = useState(null);
+  const [tempPw, setTempPw] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +52,7 @@ export default function Members() {
         actions={<Button onClick={() => setInviteOpen(true)}>+ Invita un utente</Button>} />
       <ErrorBox>{error}</ErrorBox>
 
+      {tempPw && <TempPasswordBox email={tempPw.email} password={tempPw.temporary_password} onClose={() => setTempPw(null)} />}
       {newLink && (
         <Notice>
           <div className="flex flex-col gap-2">
@@ -74,6 +77,13 @@ export default function Members() {
                   </span>
                   <Badge tone={m.totp_enabled ? "blue" : "orange"}>{m.totp_enabled ? "Verifica in due passaggi attiva" : "Verifica da attivare al prossimo accesso"}</Badge>
                   {!m.active && <Badge>Disattivato</Badge>}
+                  {user.is_owner && !m.is_me && !m.is_owner && m.active && (
+                    <Button variant="secondary" className="min-h-[40px]" data-testid={`reset-password-${m.id}`}
+                      onClick={() => window.confirm(`Azzerare la password di ${m.email}? Riceverai una password provvisoria da comunicargli: al primo accesso dovrà cambiarla. La verifica in due passaggi non cambia.`)
+                        && act(async () => setTempPw((await api.post(`/members/${m.id}/reset-password`)).data), "Password azzerata")}>
+                      Azzera password
+                    </Button>
+                  )}
                   {user.is_owner && !m.is_me && !m.is_owner && m.totp_enabled && (
                     <Button variant="secondary" className="min-h-[40px]" data-testid={`reset-2fa-${m.id}`}
                       onClick={() => window.confirm(`Azzerare la verifica in due passaggi di ${m.email}? Al prossimo accesso dovrà riattivarla con il nuovo telefono.`) && act(() => api.post(`/members/${m.id}/reset-2fa`), "Verifica azzerata")}>

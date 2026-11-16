@@ -45,6 +45,7 @@ def public_user(user: dict) -> dict:
         "is_developer": user.get("is_developer", False),
         "totp_enabled": user.get("totp_enabled", False),
         "recovery_codes_left": len(user.get("recovery_codes") or []),
+        "must_change_password": bool(user.get("must_change_password")),
         "twofa_required": settings.require_2fa_login,
     }
 
@@ -192,8 +193,10 @@ async def change_password(body: PasswordChangeIn, user: dict = Depends(get_curre
     problem = validate_password_strength(body.new_password)
     if problem:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, problem)
+    if verify_password(body.new_password, full["password_hash"]):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La nuova password deve essere diversa da quella attuale.")
     await db.users.update_one({"id": user["id"]}, {
-        "$set": {"password_hash": hash_password(body.new_password)},
+        "$set": {"password_hash": hash_password(body.new_password), "must_change_password": False},
         "$inc": {"token_version": 1},
     })
     await audit.log(user, "password_cambiata")

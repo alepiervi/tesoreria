@@ -13,6 +13,7 @@ from ..security import (
     hash_password, hash_token, new_invite_token,
     validate_password_strength, verify_password,
 )
+from ..services.passwords import reset_password
 from ..utils import clean, new_id, now_iso, now_utc
 
 router = APIRouter(tags=["members"])
@@ -290,6 +291,20 @@ async def accept_invite(token: str, body: AcceptIn):
     await audit.log(user, "invito_accettato", details={"companies": company_ids, "titolare": owner_invite})
     # Nessuna sessione diretta: si entra sempre dal login con password e verifica in due passaggi
     return {"ok": True, "email": user["email"], "existing_user": existing_user}
+
+
+@router.post("/members/{user_id}/reset-password")
+async def reset_member_password(user_id: str, user: dict = Depends(get_current_user)):
+    """Password provvisoria per un collaboratore: dovrà cambiarla al primo accesso. La verifica 2FA resta com'è."""
+    require_owner(user)
+    if user_id == user["id"]:
+        raise HTTPException(400, "Per la tua password usa Impostazioni → Cambia password.")
+    target = await _managed_target(user, user_id)
+    if target.get("is_owner"):
+        raise HTTPException(403, "La password di un titolare la azzera lo sviluppatore.")
+    if not target.get("active", True):
+        raise HTTPException(400, "L'utente è disattivato: riattivalo prima.")
+    return {"temporary_password": await reset_password(user, target), "email": target["email"]}
 
 
 @router.post("/members/{user_id}/reset-2fa")

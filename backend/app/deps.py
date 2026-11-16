@@ -1,5 +1,5 @@
 """Dipendenze FastAPI: utente autenticato e controllo dei permessi per azienda."""
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .db import get_db
@@ -10,7 +10,12 @@ from .utils import clean
 bearer = HTTPBearer(auto_error=False)
 
 
+# Con una password provvisoria si può solo leggere il proprio profilo e cambiarla
+PASSWORD_CHANGE_PATHS = {"/api/auth/me", "/api/auth/password", "/api/auth/logout-everywhere", "/api/client-errors"}
+
+
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> dict:
     if credentials is None:
@@ -24,6 +29,8 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Utente non attivo.")
     if payload.get("ver", 0) != user.get("token_version", 0):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessione non più valida.")
+    if user.get("must_change_password") and request.url.path not in PASSWORD_CHANGE_PATHS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "password_change_required")
     from .services.ai_usage import current_user
     current_user.set({"id": user["id"], "name": user.get("name"), "email": user.get("email")})
     return clean(user)

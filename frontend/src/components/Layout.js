@@ -14,7 +14,7 @@ const DEVELOPER_SECTIONS = [
     items: [
       { to: "/sviluppatore", label: "Stato del sistema", icon: "pulse", end: true },
       { to: "/sviluppatore/errori", label: "Errori tecnici", icon: "shieldcheck" },
-      { to: "/sviluppatore/titolare", label: "Invito titolare", icon: "users" },
+      { to: "/sviluppatore/titolare", label: "Titolari", icon: "users" },
     ],
   },
   { title: "Aiuto", items: [{ to: "/guida", label: "Guida e video", icon: "help" }] },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, ErrorBox, Field, Notice, PageHeader, useToast } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
+import { DevOwners } from "./Owners";
 
 const when = (iso) => new Date(iso).toLocaleDateString("it-IT");
 
@@ -84,6 +85,7 @@ export default function DevOwnerInvite() {
           )}
         </Card>
       </div>
+      <DevOwners />
     </>
   );
 }
