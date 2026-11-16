@@ -1,0 +1,17 @@
+{
+  "summary": "I retested the api.js interceptor fix from iteration 23 in the frontend, using Playwright on the public URL. All 3 requested flows PASS. Setup ran from scripts in /tmp, which I have since deleted. The developer password was passed only as an environment variable. Setup steps: the developer logged in and enrolled 2FA via the API with pyotp; the developer created the owner TEST_Exp24 (test_exp24@example.com) through POST /api/developer/owners; the owner logged in with the temporary password and enrolled 2FA via the API, which returned an access token with must_change_password=true. (1) Invalid token: I put an invalid tesoreria_token in localStorage and opened '/'. The user is redirected to /login, the token is cleared, login_notice is null, and there is no role=alert element (no ErrorBox). (2) Idle logout: with a valid developer token and nureal_last_activity set to 16 minutes ago, the user is redirected to /login?scaduta=1, the token is cleared, and the idle-logout-notice reads 'Sei stato disconnesso dopo 15 minuti di inattività...'. There is no ErrorBox. As a sanity check, with fresh activity the same token lands on /sviluppatore. (3) Expired provisional password: with the owner token, the force-password-change screen is shown. I then set temp_password_expires_at 1 minute in the past with pymongo; it is stored as an ISO string. After I submitted the change, the user is redirected to /login, the token is cleared, and the ErrorBox shows 'La password provvisoria è scaduta (vale 48 ore). Chiedi un nuovo azzeramento.' login_notice is removed after mount, and there is no alert after a reload.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "api.js line 40: sessionStorage.setItem is not wrapped in try/catch, unlike setToken (minor; in browsers without storage it would throw inside the interceptor before the redirect).",
+    "The match still relies on substring text ('password provvisoria'). A machine code from the backend would be more robust if the message is ever reworded (minor)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (frontend only)", "frontend": "100% (3/3 flows)"},
+  "seed_data_creation": "The developer now has 2FA enrolled (secret only in Mongo). I created the owner test_exp24@example.com (TEST_Exp24): 2FA on, must_change_password=True, temp password expired. The main agent plans to wipe the DB. Nothing was written to /app/backend/tests or /app/test_reports/pytest.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The owner's 2FA enrollment was done via the API (enroll/start and enroll/finish with pyotp), not through the UI. Injecting the resulting access_token into localStorage shows the ForcePasswordChange screen. The expiry was simulated by calling an external python file through subprocess from the browser_automation script."
+}
