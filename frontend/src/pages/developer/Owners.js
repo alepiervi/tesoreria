@@ -3,7 +3,7 @@ import { TempPasswordBox } from "../../components/PasswordTools";
 import { Badge, Button, Card, ErrorBox, Field } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
 
-export function DevOwners() {
+export function DevOwners({ onCreated }) {
   const [owners, setOwners] = useState([]);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -36,6 +36,7 @@ export function DevOwners() {
       const r = await api.post("/developer/owners", { email, name });
       setTemp(r.data);
       setTempNew(true);
+      onCreated?.(r.data.email);
       setEmail("");
       setName("");
     });
@@ -44,8 +45,9 @@ export function DevOwners() {
   const reset = (o) => {
     if (!window.confirm(`Azzerare la password di ${o.email}? La verifica in due passaggi non cambia.`)) return;
     run(o.id, async () => {
-      setTemp((await api.post(`/developer/owners/${o.id}/reset-password`)).data);
-      setTempNew(false);
+      const r = await api.post(`/developer/owners/${o.id}/reset-password`);
+      setTemp(r.data);
+      setTempNew(!r.data.totp_enabled);
     });
   };
 

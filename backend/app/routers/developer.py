@@ -171,7 +171,8 @@ async def reset_owner_password(owner_id: str, user: dict = Depends(developer)):
         raise HTTPException(404, "Titolare non trovato.")
     if not target.get("active", True):
         raise HTTPException(400, "Il titolare è disattivato.")
-    return {"email": target["email"], "temporary_password": await reset_password(user, target)}
+    return {"email": target["email"], "temporary_password": await reset_password(user, target),
+            "totp_enabled": bool(target.get("totp_enabled"))}
 
 
 @router.delete("/developer/owner-invites/{invite_id}")

@@ -1,0 +1,32 @@
+{
+  "summary": "Retested the iteration-19 fixes (API + UI). Backend: 11/11 ad-hoc checks passed (script in /tmp, now deleted). Creating an owner (email given in uppercase) removes the pending owner invite for that email. Other invites are kept. The old token returns 404 'Invito non valido o già usato.' on both GET and accept. Frontend: the heading is 'Titolari'. The TempPasswordBox says 'Al primo accesso attiverà anche la verifica in due passaggi' after create and 'La verifica in due passaggi resta quella già attiva' after reset. An owner with no name is listed once with no '·'. The old invite link shows 'Invito non valido o già usato.' Full regression passed using login-email/login-password: the temp password from before the reset was rejected; login with the new temp password went through 2FA enrollment (QR/secret, 10 recovery codes), then ForcePasswordChange. force-pw-logout returned to /login. After logging in again with temp + TOTP, the forced change appeared again; the mismatch error showed; the change led to the app at '/'. Logging in again with the new password + TOTP went straight to the app. All the new testids exist (deactivate-/activate- were checked in the code of Members.js only, not clicked). One minor UI issue was found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "developer/OwnerInvite.js + Owners.js", "issue": "After 'Crea titolare' for an email that has a pending invite, the 'Inviti in attesa' card still shows the deleted invite, and the 'Link creato' box still shows its now-invalid link, until the page is reloaded. DevOwners.load() only refreshes the owners list. Clicking 'Annulla' on the stale row would give a 404 (unhandled in cancel()). Fix: pass an onChange/onCreated callback from OwnerInvite to DevOwners that calls the parent load() and clears the link when its email matches.", "selector": "[data-testid='owner-invites-pending']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/sviluppatore/titolare reset", "issues": ["If you reset an owner who never logged in (no 2FA yet), the box still says 'La verifica in due passaggi resta quella già attiva'. The list API does not expose totp_enabled, so the UI cannot tell. Optional: return a totp_enabled flag from reset-password and choose the text from it."]},
+      {"screen": "/invito/<invalid>", "issues": ["The invalid-invite page shows only the message, with no link to /login (dead end). Optional."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Refresh the 'Inviti in attesa' list (and clear the stale link box) after DevOwners creates an owner",
+    "Optional: choose the reset note based on the target's totp_enabled; add a 'Vai all'accesso' link on the invalid-invite page",
+    "Optional: handle errors in OwnerInvite cancel() (currently an unhandled promise on 404)"
+  ],
+  "critical_code_review_comments": [
+    "create_owner: delete_many on invites happens after insert_one(user): correct. Email is normalized to lowercase on both sides: verified with an uppercase input",
+    "OwnerInvite.cancel has no try/catch: an API error causes an unhandled rejection and no ErrorBox message",
+    "Playbook: password hashes are bcrypt $2b$ (verified in the DB)"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100% of requested checks (1 minor stale-list UI issue)"},
+  "seed_data_creation": "Created test_inv_api@, test_inv_api2@, test_ui_flow20@example.com owners plus invites (including test_other_inv/test_other_inv2). All invites were cancelled or removed by create_owner, and the 3 users were deleted by id. The DB is back to only the developer, BUT the developer now has 2FA ENROLLED (it was not before). The main agent wipes the DB anyway. No files were left in /app/backend/tests or test_reports/pytest, and the developer password was not written to any file.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Accept endpoint is POST /api/invites/token/{token}/accept. TOTP is single-use per 30s step: wait for the next step between logins of the same user. In the UI, the TOTP secret is in [data-testid=totp-secret] during enrollment.",
+  "rca of the issue": "Stale pending-invite list: OwnerInvite.js keeps its own 'pending' state and 'link', while DevOwners is a child with its own load(). Creating an owner deletes the invite on the server, but nothing tells the parent to reload."
+}

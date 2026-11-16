@@ -25,7 +25,7 @@ export default function DevOwnerInvite() {
     setError("");
     try {
       const r = await api.post("/developer/owner-invites", { email, name });
-      setLink({ id: r.data.id, url: `${window.location.origin}${r.data.invite_path}` });
+      setLink({ id: r.data.id, email: r.data.email, url: `${window.location.origin}${r.data.invite_path}` });
       setEmail("");
       setName("");
       load();
@@ -42,7 +42,7 @@ export default function DevOwnerInvite() {
   };
 
   const cancel = async (id) => {
-    await api.delete(`/developer/owner-invites/${id}`);
+    await api.delete(`/developer/owner-invites/${id}`).catch(() => {});
     if (link?.id === id) setLink(null);
     load();
   };
@@ -85,7 +85,7 @@ export default function DevOwnerInvite() {
           )}
         </Card>
       </div>
-      <DevOwners />
+      <DevOwners onCreated={(created) => { load(); if (link && created === link.email) setLink(null); }} />
     </>
   );
 }

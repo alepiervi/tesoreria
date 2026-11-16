@@ -47,7 +47,10 @@ export default function AcceptInvite() {
           Nureal-Amministrazione
         </span>
         {loadError ? (
-          <ErrorBox>{loadError}</ErrorBox>
+          <div className="flex flex-col gap-3">
+            <ErrorBox>{loadError}</ErrorBox>
+            <a href="/login" className="text-sm font-semibold text-accent underline" data-testid="invite-go-login">Vai all'accesso</a>
+          </div>
         ) : !info ? (
           <Loading />
         ) : (
