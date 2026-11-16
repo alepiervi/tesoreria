@@ -140,10 +140,18 @@ export function BalanceModal({ account, onClose, onDone }) {
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-const rowCounts = (r, include) => !r.duplicate && (!r.similar || include.has(r.index));
+const rowCounts = (r, include, exclude) => !exclude.has(r.index) && !r.duplicate && (!r.similar || include.has(r.index));
+
+/** Differenza tra saldo finale del file e saldo iniziale + righe tenute (null se mancano i saldi). */
+const fileDiff = (preview, exclude) => {
+  const o = preview.opening_balance_cents;
+  const c = preview.closing_balance_cents;
+  if (o === null || o === undefined || c === null || c === undefined) return null;
+  return c - o - preview.rows.filter((r) => !exclude.has(r.index)).reduce((t, r) => t + r.amount_cents, 0);
+};
 
 /** Elenco completo dei movimenti letti: i possibili doppioni si spuntano per importarli comunque. */
-function PreviewRows({ rows, include, onToggle }) {
+function PreviewRows({ rows, include, exclude, onToggle, onExclude }) {
   return (
     <div className="max-h-[420px] overflow-auto rounded-xl border border-line" data-testid="import-preview-rows">
       <table className="w-full min-w-[620px] text-sm">
@@ -154,7 +162,7 @@ function PreviewRows({ rows, include, onToggle }) {
         </thead>
         <tbody>
           {rows.map((m) => (
-            <tr key={m.index} className={`border-b border-soft align-top ${m.duplicate || (m.similar && !include.has(m.index)) ? "opacity-60" : ""}`}
+            <tr key={m.index} className={`border-b border-soft align-top ${exclude.has(m.index) ? "line-through opacity-50" : m.duplicate || (m.similar && !include.has(m.index)) ? "opacity-60" : ""}`}
               data-testid={`import-row-${m.index}`}>
               <td className="whitespace-nowrap px-3 py-2 text-muted">{fmtDate(m.date, { year: true })}</td>
               <td className="py-2 pr-3">
@@ -163,6 +171,11 @@ function PreviewRows({ rows, include, onToggle }) {
               </td>
               <td className="whitespace-nowrap py-2 pr-3 text-right"><Amount cents={m.amount_cents} /></td>
               <td className="whitespace-nowrap py-2 pr-3">
+                <label className="flex min-h-[36px] items-center gap-2 text-xs text-muted no-underline">
+                  <input type="checkbox" className="h-[18px] w-[18px]" checked={exclude.has(m.index)} onChange={() => onExclude(m.index)}
+                    data-testid={`import-exclude-${m.index}`} />
+                  Non c'è nel file
+                </label>
                 {m.duplicate && <Badge>Già presente</Badge>}
                 {m.similar && (
                   <label className="flex min-h-[36px] items-center gap-2 text-xs font-semibold">
@@ -181,10 +194,11 @@ function PreviewRows({ rows, include, onToggle }) {
 }
 
 /** Saldo dopo l'import: base + movimenti scelti, con eventuale correzione a mano. */
-function BalanceBox({ preview, include, balance, setBalance, balanceDate, setBalanceDate }) {
+function BalanceBox({ preview, include, exclude, confirm, setConfirm, balance, setBalance, balanceDate, setBalanceDate }) {
   const plan = preview.balance_plan;
   const [manual, setManual] = useState(false);
-  const sum = preview.rows.filter((r) => rowCounts(r, include) && (!plan.after_date || r.date > plan.after_date))
+  const diff = fileDiff(preview, exclude);
+  const sum = preview.rows.filter((r) => rowCounts(r, include, exclude) && (!plan.after_date || r.date > plan.after_date))
     .reduce((t, r) => t + r.amount_cents, 0);
   const after = plan.mode === "file" ? plan.base_cents : plan.base_cents + sum;
   const fileClosing = preview.closing_balance_cents;
@@ -192,7 +206,16 @@ function BalanceBox({ preview, include, balance, setBalance, balanceDate, setBal
   const differs = plan.mode === "sum" && !laterMovements && fileClosing !== null && fileClosing !== undefined && fileClosing !== after;
   return (
     <div className="flex flex-col gap-3">
-      {preview.balance_check === "ok" && <Notice>I conti tornano: saldo iniziale + movimenti letti = saldo finale del file.</Notice>}
+      {diff === 0 && <Notice>I conti tornano: saldo iniziale {eur(preview.opening_balance_cents)} + movimenti = saldo finale {eur(preview.closing_balance_cents)}.</Notice>}
+      {diff !== null && diff !== 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800" data-testid="import-mismatch">
+          <span>I conti non tornano: saldo iniziale {eur(preview.opening_balance_cents)} + movimenti tenuti è diverso dal saldo finale {eur(preview.closing_balance_cents)} di <strong>{eur(Math.abs(diff))}</strong>. Spunta «Non c'è nel file» sulle righe che nel tuo estratto non ci sono.</span>
+          <label className="flex min-h-[36px] items-center gap-2 font-semibold">
+            <input type="checkbox" className="h-[18px] w-[18px]" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} data-testid="import-confirm-mismatch" />
+            Ho controllato l'elenco: importa lo stesso
+          </label>
+        </div>
+      )}
       <Notice>
         <span data-testid="import-balance-after">Saldo del conto dopo l'import: <strong>{eur(after)}</strong></span>
         {plan.mode === "sum" ? ` (${plan.base_label} ${eur(plan.base_cents)} ${sum < 0 ? "−" : "+"} movimenti importati ${eur(Math.abs(sum))}${plan.after_date ? `, solo quelli dopo il ${fmtDate(plan.after_date, { year: true })}` : ""}).` : " (letto dall'estratto)."}
@@ -291,6 +314,8 @@ export function ImportStatementModal({ account, onClose, onDone }) {
   const [balanceDate, setBalanceDate] = useState("");
   const [invert, setInvert] = useState(false);
   const [include, setInclude] = useState(new Set());
+  const [exclude, setExclude] = useState(new Set());
+  const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const fileRef = useRef(null);
@@ -315,6 +340,8 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     if (mapping) fd.append("mapping", JSON.stringify(mapping));
     if (invert) fd.append("invert", "true");
     if (include.size) fd.append("include", JSON.stringify([...include]));
+    if (exclude.size) fd.append("exclude", JSON.stringify([...exclude]));
+    if (confirm) fd.append("confirm_mismatch", "true");
     if (balance.trim()) {
       fd.append("closing_balance", balance);
       fd.append("closing_balance_date", balanceDate);
@@ -327,6 +354,8 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     setBusy("preview");
     setError("");
     setInclude(new Set());
+    setExclude(new Set());
+    setConfirm(false);
     try {
       const fd = new FormData();
       fd.append("file", f);
@@ -370,7 +399,7 @@ export function ImportStatementModal({ account, onClose, onDone }) {
     }
   };
 
-  const toggleInclude = (i) => setInclude((s) => {
+  const flip = (setter) => (i) => setter((s) => {
     const next = new Set(s);
     next.has(i) ? next.delete(i) : next.add(i);
     return next;
@@ -395,14 +424,15 @@ export function ImportStatementModal({ account, onClose, onDone }) {
   };
 
   const hasRows = preview && !preview.needs_mapping && preview.count > 0;
-  const toImport = hasRows ? preview.new_count + include.size : 0;
+  const toImport = hasRows ? preview.rows.filter((r) => rowCounts(r, include, exclude)).length : 0;
+  const blocked = hasRows && fileDiff(preview, exclude) !== null && fileDiff(preview, exclude) !== 0 && !confirm;
 
   return (
     <Modal open wide onClose={onClose} title={`Importa estratto conto · ${account.bank_name} · ${account.label} · ${account.iban_masked}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Annulla</Button>
-          <Button onClick={submit} loading={busy === "import"} disabled={!hasRows || (toImport === 0 && !balance.trim())} data-testid="import-submit">
+          <Button onClick={submit} loading={busy === "import"} disabled={!hasRows || blocked || (toImport === 0 && !balance.trim())} data-testid="import-submit">
             {hasRows ? `Importa ${plural(toImport, "movimento", "movimenti")}` : "Importa"}
           </Button>
         </>
@@ -442,7 +472,7 @@ export function ImportStatementModal({ account, onClose, onDone }) {
             {preview.similar_count > 0 && (
               <Notice tone="orange">{preview.similar_count === 1 ? "1 movimento ha" : `${preview.similar_count} movimenti hanno`} lo stesso importo e una data vicina a movimenti già presenti sul conto: non {preview.similar_count === 1 ? "lo" : "li"} importo, a meno che tu non spunti «Importa comunque».</Notice>
             )}
-            {preview.warnings?.map((w) => <Notice key={w} tone="orange">{w}</Notice>)}
+            {preview.warnings?.filter((w) => !w.startsWith("I conti non tornano")).map((w) => <Notice key={w} tone="orange">{w}</Notice>)}
             {!preview.needs_mapping && (
               <label className="flex min-h-[40px] items-center gap-2 text-sm">
                 <input type="checkbox" className="h-[18px] w-[18px]" checked={invert}
@@ -500,9 +530,9 @@ export function ImportStatementModal({ account, onClose, onDone }) {
 
             {hasRows && (
               <>
-                <PreviewRows rows={preview.rows} include={include} onToggle={toggleInclude} />
+                <PreviewRows rows={preview.rows} include={include} exclude={exclude} onToggle={flip(setInclude)} onExclude={flip(setExclude)} />
                 {preview.count > preview.rows.length && <p className="text-xs text-muted">Mostro i primi {preview.rows.length} movimenti su {preview.count}.</p>}
-                <BalanceBox preview={preview} include={include} balance={balance} setBalance={setBalance} balanceDate={balanceDate} setBalanceDate={setBalanceDate} />
+                <BalanceBox preview={preview} include={include} exclude={exclude} confirm={confirm} setConfirm={setConfirm} balance={balance} setBalance={setBalance} balanceDate={balanceDate} setBalanceDate={setBalanceDate} />
                 {toImport === 0 && <Notice tone="orange">Nessun movimento nuovo da importare in questo file.</Notice>}
               </>
             )}

@@ -25,6 +25,12 @@ def test_pdf_description_right_of_amounts():
     assert not any("Pagina" in m["description"] for m in r["movements"])
 
 
+def test_pdf_summary_box_and_scalare_ignored():
+    r = parse_pdf(bpm_pdf(extras=True))
+    assert len(r["movements"]) == 5, [m["description"] for m in r["movements"]]
+    assert r["opening_balance_cents"] == 1000000 and r["closing_balance_cents"] == 1251675 and r["balance_check"] == "ok"
+
+
 HTML_XLS = """<html><body><table>
 <tr><td>Banco BPM - Lista movimenti</td></tr>
 <tr><th>Data contabile</th><th>Data valuta</th><th>Descrizione</th><th>Importo</th></tr>
@@ -103,3 +109,17 @@ def test_correct_balance_and_legacy_undo_keeps_balance(client, owner):
     before = next(a for a in client.get(f"/api/companies/{acc['company_id']}/bank-accounts", headers=owner).json() if a["id"] == acc["id"])
     r = client.delete(f"/api/statement-imports/{rec['id']}", headers=owner).json()
     assert r["check_balance"] is True and r["account"]["balance_cents"] == before["balance_cents"]
+
+
+def test_mismatch_blocks_import_until_rows_removed_or_confirmed(client, owner):
+    acc = new_account(client, owner)
+    pdf = bpm_pdf(closing="12.504,25")  # il saldo finale del file non torna di 12,50
+    files = {"file": ("t.pdf", pdf, "application/pdf")}
+    p = client.post(f"/api/bank-accounts/{acc['id']}/statement/preview", headers=owner, files=files).json()
+    assert p["balance_check"] == "mismatch"
+    assert any("non tornano" in w for w in p["warnings"])
+    assert client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner, files=files).status_code == 409
+    r = client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner, files=files, data={"exclude": "[4]"})
+    assert r.status_code == 409  # togliere un'entrata non basta: ancora non torna
+    r = client.post(f"/api/bank-accounts/{acc['id']}/statement/import", headers=owner, files=files, data={"confirm_mismatch": "true", "exclude": "[4]"})
+    assert r.status_code == 200 and r.json()["imported"] == 4

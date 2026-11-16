@@ -51,6 +51,8 @@ MARKERS = {"CR", "DB", "EUR", "€", "D", "C", "+", "-"}
 def _header_line(line) -> dict:
     """Colonne lette da una riga di intestazione (centro e bordi di Dare, Avere, Saldo, Descrizione)."""
     texts = [w["text"].lower().strip(":.") for w in line]
+    if any(t in ("totale", "totali", "iniziale", "finale") for t in texts):
+        return {}  # riquadro dei saldi o riga dei totali, non l'intestazione dei movimenti
     cols = {}
     i = 0
     while i < len(texts):
@@ -181,9 +183,13 @@ def parse_pdf_text(pages_lines: list[list[list[dict]]], card: bool = False) -> d
     opening = closing = closing_date = None
     cols = {}
     guessed_signs = 0
+    closing_locked = False
     last = None
     last_top = None
     last_date = None
+    has_header = any(_header_line(line) for lines in pages_lines for line in lines)
+    in_table = not has_header
+    pending_labels = None
     for lines in pages_lines:
         last = None  # una nuova pagina non continua la descrizione (intestazioni e piè di pagina)
         cols = _header_columns(lines) or cols
@@ -191,23 +197,43 @@ def parse_pdf_text(pages_lines: list[list[list[dict]]], card: bool = False) -> d
             texts = [w["text"] for w in line]
             low = " ".join(texts).lower()
             if _header_line(line):
+                last, in_table = None, True
+                continue
+            first = texts[0] if texts else ""
+            all_amounts = [w for w in line if _is_amount(w)]
+            # riquadro dei saldi su due righe: etichette sopra, importi sotto
+            if pending_labels and all_amounts and not _has_words(line, all_amounts):
+                for label, amt in _match_labels(pending_labels, all_amounts):
+                    opening, closing, closing_locked = _apply_balance(
+                        label, _balance_value(amt, label, "", {}, card), bool(movements), opening, closing, closing_locked)
+                pending_labels = None
+                continue
+            pending_labels = None
+            if not all_amounts and "saldo" in low and not DATE_RX.match(first):
+                labels = _labels_only(line)
+                if labels:
+                    pending_labels = labels
+                    continue
+            if not DATE_RX.match(first) and _section_end(low):
+                last, in_table = None, False  # riassunto scalare, prospetti e documenti di sintesi: non sono movimenti
+                continue
+            body = " ".join(t for t in texts if not DATE_RX.match(t)).lower().lstrip("*-. ")
+            is_balance = all_amounts and (body.startswith(("saldo", "nuovo saldo", "totale da pagare", "importo da addebitare"))
+                                          or (not DATE_RX.match(first) and "saldo" in low))
+            if is_balance:
+                if in_table or any(w in low for w in ("iniziale", "finale", "precedente")):
+                    d = next((parse_date_any(t) for t in texts if DATE_RX.match(t)), None)
+                    for label, amt in _labelled_amounts(line):
+                        before = closing
+                        opening, closing, closing_locked = _apply_balance(
+                            label, _balance_value(amt, label, "", cols, card), bool(movements), opening, closing, closing_locked)
+                        if closing != before:
+                            closing_date = d or last_date
                 last = None
+                continue
+            if not in_table:
                 continue
             amounts, suffix, text_words = _split_line(line, cols)
-            first = texts[0] if texts else ""
-            body = " ".join(t for t in texts if not DATE_RX.match(t)).lower().lstrip("*-. ")
-            is_balance = amounts and (body.startswith(("saldo", "nuovo saldo", "totale da pagare", "importo da addebitare"))
-                                      or (not DATE_RX.match(first) and any(w in low for w in CLOSING_WORDS + OPENING_WORDS)))
-            if is_balance:
-                value = _balance_value(amounts[-1], low, suffix, cols, card)
-                if not movements and any(w in low for w in OPENING_WORDS) and not any(w in low for w in ("finale", "nuovo saldo")):
-                    opening = value if opening is None else opening
-                elif movements:
-                    closing = value
-                    d = next((parse_date_any(t) for t in texts if DATE_RX.match(t)), None)
-                    closing_date = d or last_date
-                last = None
-                continue
             if not DATE_RX.match(first):
                 # continuazione della descrizione del movimento precedente (righe vicine, senza importi)
                 near = last_top is not None and line[0]["top"] - last_top < 22
@@ -228,9 +254,9 @@ def parse_pdf_text(pages_lines: list[list[list[dict]]], card: bool = False) -> d
             if rest and DATE_RX.match(rest[0]["text"]):
                 vd = parse_date_any(rest[0]["text"])
                 rest = rest[1:]
-            desc = " ".join(w["text"] for w in rest).strip() or "Movimento"
-            if desc.lower().startswith(("saldo", "totale", "riporto", "a riportare")):
-                last = None  # riga di saldo o di totale, non un movimento
+            desc = " ".join(w["text"] for w in rest).strip()
+            if desc.lower().startswith(("saldo", "totale", "riporto", "a riportare")) or len(re.findall(r"[A-Za-zÀ-ÿ]", desc)) < 3:
+                last = None  # saldo, totale o riga di soli numeri (es. riassunto scalare): non è un movimento
                 continue
             amt_word = _movement_amount(amounts, cols) if cols else amounts[0]
             value = parse_amount_any(amt_word["text"])
@@ -265,6 +291,67 @@ def parse_pdf_text(pages_lines: list[list[list[dict]]], card: bool = False) -> d
               "iban": _find_iban(pages_lines)}
     result["balance_check"] = balance_check(result)
     return result
+
+
+SECTION_END = ("scalare", "riassunto", "documento di sintesi", "prospetto", "numeri debitori", "numeri creditori",
+               "calcolo degli interessi", "conteggio interessi")
+OPEN_LABELS = ("iniziale", "precedente", "riportato", "inizio")
+CLOSE_LABELS = ("finale", "nuovo saldo", "saldo contabile", "saldo a debito", "saldo da addebitare", "da addebitare", "da pagare")
+
+
+def _section_end(low: str) -> bool:
+    return any(w in low for w in SECTION_END) or ("giorni" in low and "numeri" in low) or low.startswith("riepilogo")
+
+
+def _has_words(line, amounts) -> bool:
+    ids = {id(a) for a in amounts}
+    return any(re.search(r"[A-Za-zÀ-ÿ]{3}", w["text"]) for w in line if id(w) not in ids)
+
+
+def _labelled_amounts(line) -> list[tuple[str, dict]]:
+    """Ogni importo della riga con il testo che lo precede (es. «saldo iniziale» 1.000,00 «saldo finale» 2.000,00)."""
+    out, label = [], []
+    for w in line:
+        if _is_amount(w):
+            out.append((" ".join(label).lower(), w))
+            label = []
+        elif not DATE_RX.match(w["text"]):
+            label.append(w["text"])
+    if len(out) > 1 and not out[-1][0]:
+        out = out[:-1] + [(out[0][0], out[-1][1])]  # «saldo al 31/03 … 1.000,00 CR»: un solo importo con il suo testo
+    return [(lbl or " ".join(w["text"] for w in line).lower(), w) for lbl, w in out]
+
+
+def _labels_only(line) -> list[tuple[str, float]]:
+    """Etichette di un riquadro dei saldi (senza importi): testo e posizione orizzontale."""
+    groups, cur = [], []
+    for w in line:
+        if cur and w["x0"] - cur[-1]["x1"] > 12:
+            groups.append(cur)
+            cur = []
+        cur.append(w)
+    if cur:
+        groups.append(cur)
+    labels = [(" ".join(w["text"] for w in g).lower(), (g[0]["x0"] + g[-1]["x1"]) / 2) for g in groups]
+    return labels if sum(1 for t, _ in labels if "saldo" in t) and len(labels) >= 2 else []
+
+
+def _match_labels(labels, amounts) -> list[tuple[str, dict]]:
+    return [(min(labels, key=lambda l: abs(l[1] - _center(a)))[0], a) for a in amounts]
+
+
+def _apply_balance(label: str, value, has_movements: bool, opening, closing, locked: bool):
+    if value is None or any(w in label for w in ("liquido", "disponibile", "per valuta", "medio")):
+        return opening, closing, locked
+    if any(w in label for w in OPEN_LABELS) and "finale" not in label:
+        return (value if opening is None else opening), closing, locked
+    if any(w in label for w in CLOSE_LABELS) or ("saldo al" in label and has_movements):
+        return opening, value, True
+    if "saldo al" in label and not has_movements and opening is None:
+        return value, closing, locked
+    if "saldo" in label and has_movements and not locked and not any(w in label for w in ("riportare", "riporto")):
+        return opening, value, locked
+    return opening, closing, locked
 
 
 def balance_check(result: dict) -> str | None:

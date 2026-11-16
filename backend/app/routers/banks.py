@@ -334,15 +334,20 @@ async def _read_statement(account: dict, file: UploadFile, mapping_raw: str, inv
         except StatementError as e2:
             raise HTTPException(400, str(e2))
     else:
-        if parsed["format"] == "pdf" and (parsed.get("balance_check") == "mismatch" or weak_descriptions(parsed)):
-            # i conti non tornano o mancano le descrizioni: si confronta con la lettura dell'assistente
+        if parsed["format"] == "pdf" and (parsed.get("balance_check") != "ok" or weak_descriptions(parsed)):
+            # i conti non tornano, mancano i saldi o le descrizioni: si prova la lettura dell'assistente,
+            # che si usa solo se saldo iniziale + movimenti = saldo finale
             ai_result = await _ai_pdf(data, is_card)
-            if ai_result and ai_result["movements"] and (
-                    ai_result.get("balance_check") == "ok" or (weak_descriptions(parsed) and not weak_descriptions(ai_result))):
+            if ai_result and ai_result["movements"] and ai_result.get("balance_check") == "ok":
                 parsed = finish(ai_result, "pdf")
     if parsed.get("balance_check") == "mismatch":
-        parsed["warnings"].append("Saldo iniziale più movimenti letti non corrisponde al saldo finale del file: "
-                                  "controlla con attenzione l'elenco qui sotto prima di importare.")
+        diff = parsed["closing_balance_cents"] - parsed["opening_balance_cents"] - sum(m["amount_cents"] for m in parsed["movements"])
+        parsed["warnings"].append(f"I conti non tornano: saldo iniziale più movimenti letti è diverso dal saldo finale del file di "
+                                  f"{abs(diff) / 100:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".") +
+                                  ". Non importo finché non controlli l'elenco.")
+    elif parsed["format"] == "pdf" and parsed.get("balance_check") is None and not is_card:
+        parsed["warnings"].append("Nel PDF non ho trovato sia il saldo iniziale sia quello finale, quindi non posso verificare "
+                                  "i movimenti letti: controllali con l'estratto prima di importare.")
     if invert:
         for m in parsed["movements"]:
             m["amount_cents"] = -m["amount_cents"]
@@ -441,18 +446,24 @@ def _parse_include(raw: str) -> set[int]:
 @router.post("/bank-accounts/{account_id}/statement/import")
 async def import_statement(account_id: str, file: UploadFile = File(...), mapping: str = Form(""),
                            closing_balance: str = Form(""), closing_balance_date: str = Form(""), invert: bool = Form(False),
-                           include: str = Form(""), user: dict = Depends(get_current_user)):
+                           include: str = Form(""), exclude: str = Form(""), confirm_mismatch: bool = Form(False), user: dict = Depends(get_current_user)):
     account, _ = await load("bank_accounts", account_id, user, "manage_banks")
     db = get_db()
     parsed, ids, existing = await _read_statement(account, file, mapping, invert)
     if parsed.get("needs_mapping"):
         raise HTTPException(400, parsed.get("error") or "Indica quali colonne contengono data e importo.")
+    skip = _parse_include(exclude)
+    kept = [m for i, m in enumerate(parsed["movements"]) if i not in skip]
+    still_wrong = parsed.get("balance_check") == "mismatch" and parsed["opening_balance_cents"] + sum(
+        m["amount_cents"] for m in kept) != parsed["closing_balance_cents"]
+    if still_wrong and not confirm_mismatch:
+        raise HTTPException(409, "I conti dell'estratto non tornano: controlla l'elenco e conferma prima di importare.")
     similar = await _similar(account, parsed["movements"], ids, existing)
     chosen = _parse_include(include)
     rules = await load_rules(db, account["company_id"])
     import_id = new_id()
     picked = [(m, eid) for i, (m, eid) in enumerate(zip(parsed["movements"], ids))
-              if eid not in existing and (i not in similar or i in chosen)]
+              if eid not in existing and i not in skip and (i not in similar or i in chosen)]
     new = [{**_new_transaction(account, eid, m["date"], m["description"], m["amount_cents"], m.get("value_date"), "import", rules),
             "import_id": import_id} for m, eid in picked]
     if new:
